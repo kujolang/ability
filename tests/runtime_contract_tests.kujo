@@ -67,8 +67,10 @@ func fixed_clock() { return 1000 }
 func fixed_id(kind, invocation) { return kind + "-test-1" }
 func audit_ok(phase, invocation, payload) { return {"ok": true, "written": true, "phase": phase, "event_id": "audit-" + phase} }
 func consume_ok(approval, invocation) { return {"ok": true} }
+func consume_fail(approval, invocation) { return {"ok": false} }
 func begin_ok(key_digest, request_digest, invocation) { return {"state": "started"} }
 func complete_ok(key_digest, request_digest, receipt) { return {"ok": true} }
+func complete_fail(key_digest, request_digest, receipt) { return {"ok": false} }
 
 func services(policy) { return {"policy": policy, "clock_ms": fixed_clock, "id_factory": fixed_id, "audit": audit_ok, "audit_required": true} }
 
@@ -142,5 +144,18 @@ assert(approved["receipt"]["idempotency"]["state"] == "completed", "keyed execut
 missing_key_invocation := invocation_for(write, {"id": 43}, "")
 missing_key := execute_ability(write_registry, missing_key_invocation, services(allow_policy))
 assert(missing_key["code"] == "ability_idempotency_key_required", "keyed Ability must reject missing idempotency keys")
+assert(missing_key["receipt"]["status"] == "rejected", "post-policy idempotency rejection must include a receipt")
+
+replayed_services := services(approval_policy)
+replayed_services["consume_approval"] := consume_fail
+replayed := execute_ability(write_registry, write_invocation, replayed_services)
+assert(replayed["code"] == "ability_approval_replayed" && replayed["receipt"]["status"] == "rejected", "approval replay must return a rejected receipt")
+
+commit_failure_services := services(allow_policy)
+commit_failure_services["begin_idempotency"] := begin_ok
+commit_failure_services["complete_idempotency"] := complete_fail
+commit_failure := execute_ability(write_registry, invocation_for(write, {"id": 44}, "publish-44"), commit_failure_services)
+assert(commit_failure["code"] == "ability_idempotency_commit_failed", "idempotency commit failure must preserve its error code")
+assert(commit_failure["receipt"]["status"] == "failed" && commit_failure["receipt"]["idempotency"]["state"] == "commit_failed", "idempotency commit failure must retain a reconciliable receipt")
 
 print("ability runtime contract tests: all assertions passed")

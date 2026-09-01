@@ -56,6 +56,13 @@ An approval has an issuance time, expiration time, nonce, approver identity,
 and evidence object. Static validation is not enough: the application must
 atomically consume the approval through `consume_approval` to prevent replay.
 
+After policy has produced a valid decision, rejected input, missing or
+conflicting idempotency state, invalid/replayed approval, and idempotency
+commit failure all return a normalized receipt. Failures before a trustworthy
+definition and policy decision exist remain transport-level errors. A commit
+failure receipt uses `idempotency.state = commit_failed` so operators can
+reconcile an execution whose durable replay record is uncertain.
+
 ## Timeout and cancellation boundary
 
 Cancellation is checked before handler entry and is available to the handler
