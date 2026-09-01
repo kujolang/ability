@@ -26,6 +26,7 @@ policy, and exposure adapters.
 
 - `schema/ability.schema.json` is the canonical executable JSON contract.
 - `src/contract.kujo` validates definitions and invocation values.
+- `docs/CONFORMANCE.md` records producer and adapter responsibilities.
 - Effect kinds are `read`, `write`, `delete`, and `external`.
 - Idempotency modes are `intrinsic`, `keyed`, and `none`.
 - Definitions are transport-neutral. MCP, agent Tool, REST, CLI, and WebMCP
@@ -43,6 +44,7 @@ metadata.
 
 ```bash
 bash tests/run_tests.sh
+bash tests/check_consumers.sh
 ```
 
 This package intentionally does not provide a global registry, remote

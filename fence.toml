@@ -1,0 +1,16 @@
+version = 1
+source_roots = ["src"]
+default_severity = "error"
+fail_on = "error"
+unknown_dependency_policy = "deny"
+
+[scan]
+include = ["src/**/*.kujo"]
+exclude = ["dist/**", "build/**", "kennel_packages/**", ".git/**"]
+
+[zones.contract]
+paths = ["src/**"]
+can_depend_on = []
+cannot_depend_on = []
+external_allow = []
+severity = "error"

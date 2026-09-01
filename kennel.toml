@@ -21,7 +21,7 @@ notes = "V1 contract proven by CMS plus Agents SDK and MCP compatibility adapter
 minimum_version = "0.1.0"
 entry = "src/contract.kujo"
 sources = ["src"]
-includes = ["README.md", "schema", "tests", "examples"]
+includes = ["README.md", "docs", "schema", "tests", "examples", "fence.toml"]
 excludes = [".git", "kennel_packages", "dist", "build", "node_modules"]
 
 [build]
