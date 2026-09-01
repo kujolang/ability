@@ -25,7 +25,7 @@ func valid_identity(identity, field_name) {
 }
 
 export validate_ability_binding := func(binding) {
-    fields := known_fields_only(binding, ["schema", "ability_id", "ability_version", "handler_id", "handler_version", "handler", "timeout_ms", "metadata"], "unknown_ability_binding_field", "Ability binding contains an unsupported field")
+    fields := known_fields_only(binding, ["schema", "ability_id", "ability_version", "handler_id", "handler_version", "handler", "result_mode", "timeout_ms", "metadata"], "unknown_ability_binding_field", "Ability binding contains an unsupported field")
     if fields["ok"] == false { return fields }
     if dict_get_or(binding, "schema", "") != ABILITY_BINDING_SCHEMA_ID { return failure("invalid_ability_binding_schema", "binding.schema must be " + ABILITY_BINDING_SCHEMA_ID, {}) }
     if valid_ability_id(dict_get_or(binding, "ability_id", "")) == false { return failure("invalid_ability_binding_id", "binding.ability_id is invalid", {}) }
@@ -33,6 +33,8 @@ export validate_ability_binding := func(binding) {
     if valid_non_empty_string(dict_get_or(binding, "handler_id", ""), 240) == false { return failure("invalid_ability_handler_id", "binding.handler_id is required", {}) }
     if valid_ability_version(dict_get_or(binding, "handler_version", "")) == false { return failure("invalid_ability_handler_version", "binding.handler_version is invalid", {}) }
     if type(dict_get_or(binding, "handler", null)) != "function" { return failure("invalid_ability_handler", "binding.handler must be a function", {}) }
+    result_mode := dict_get_or(binding, "result_mode", "raw")
+    if result_mode != "raw" && result_mode != "kujo.result/v1" { return failure("invalid_ability_handler_result_mode", "binding.result_mode must be raw or kujo.result/v1", {}) }
     timeout_ms := dict_get_or(binding, "timeout_ms", 30000)
     if valid_non_negative_int(timeout_ms) == false || timeout_ms < 1 || timeout_ms > 3600000 { return failure("invalid_ability_timeout", "binding.timeout_ms must be between 1 and 3600000", {}) }
     if type(dict_get_or(binding, "metadata", {})) != "dict" { return failure("invalid_ability_binding_metadata", "binding.metadata must be an object", {}) }

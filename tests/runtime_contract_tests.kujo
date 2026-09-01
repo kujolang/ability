@@ -32,6 +32,7 @@ func write_definition() {
 func read_handler(input, context) { return {"count": len(input["query"])} }
 func invalid_handler(input, context) { return {"unexpected": true} }
 func publish_handler(input, context) { return {"published": true} }
+func envelope_failure_handler(input, context) { return {"ok": false, "status": 409, "code": "content_locked", "message": "Content is locked", "details": {"entry_id": 42}} }
 
 func binding_for(definition, handler, handler_id) {
     return {"schema": "kujo.ability.binding/v1", "ability_id": definition["id"], "ability_version": definition["version"], "handler_id": handler_id, "handler_version": "1.0.0", "handler": handler, "timeout_ms": 30000, "metadata": {}}
@@ -106,6 +107,16 @@ invalid_step = register_ability_binding(invalid_registry, binding_for(read, inva
 invalid_step = register_ability_exposure(invalid_registry, exposure_for(read, "sdk")); invalid_registry = invalid_step["registry"]
 invalid_output := execute_ability(invalid_registry, invocation_for(read, {"query": "ability"}, ""), services(allow_policy))
 assert(invalid_output["receipt"]["status"] == "failed" && invalid_output["code"] == "ability_output_invalid", "invalid handler output must fail closed")
+
+envelope_registry := create_ability_registry()
+envelope_step := register_ability_definition(envelope_registry, read); envelope_registry = envelope_step["registry"]
+envelope_binding := binding_for(read, envelope_failure_handler, "kujo.docs.find.envelope")
+envelope_binding["result_mode"] := "kujo.result/v1"
+envelope_step = register_ability_binding(envelope_registry, envelope_binding); envelope_registry = envelope_step["registry"]
+envelope_step = register_ability_exposure(envelope_registry, exposure_for(read, "sdk")); envelope_registry = envelope_step["registry"]
+envelope_failure := execute_ability(envelope_registry, invocation_for(read, {"query": "ability"}, ""), services(allow_policy))
+assert(envelope_failure["receipt"]["status"] == "failed" && envelope_failure["code"] == "content_locked", "structured handler failures must survive in the receipt")
+assert(envelope_failure["receipt"]["error"]["details"]["http_status"] == 409, "structured handler status must be available to protocol adapters")
 
 write := write_definition()
 write_registry := create_ability_registry()

@@ -157,6 +157,21 @@ export execute_ability := func(registry, invocation_input, services_input) {
     result_value := handler_result
     error_value := null
     if type(handler_error) != "null" { status = "failed"; result_value = null; error_value = {"code": "ability_handler_failed", "message": "Ability handler failed", "details": {"error": to_string(handler_error)}} }
+    if status == "succeeded" && dict_get_or(resolved["binding"], "result_mode", "raw") == "kujo.result/v1" {
+        if type(handler_result) != "dict" || type(dict_get_or(handler_result, "ok", null)) != "bool" {
+            status = "failed"; result_value = null; error_value = {"code": "ability_handler_result_invalid", "message": "Ability handler returned an invalid kujo.result/v1 envelope", "details": {}}
+        } else {
+            if handler_result["ok"] == true {
+                result_value = dict_get_or(handler_result, "result", null)
+            } else {
+                status = "failed"; result_value = null
+                error_details := dict_get_or(handler_result, "details", {})
+                if type(error_details) != "dict" { error_details = {} }
+                if has_key(handler_result, "status") == 1 { error_details["http_status"] := handler_result["status"] }
+                error_value = {"code": to_string(dict_get_or(handler_result, "code", "ability_handler_failed")), "message": to_string(dict_get_or(handler_result, "message", "Ability handler failed")), "details": error_details}
+            }
+        }
+    }
     if duration_ms > resolved["binding"]["timeout_ms"] { status = "timed_out"; error_value = {"code": "ability_timed_out", "message": "Ability exceeded its declared timeout", "details": {"timeout_ms": resolved["binding"]["timeout_ms"], "duration_ms": duration_ms}} }
     if status == "succeeded" {
         output_validation := validate_ability_value(result_value, resolved["definition"]["output_schema"], "output")

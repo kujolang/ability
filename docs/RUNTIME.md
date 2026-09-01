@@ -16,6 +16,12 @@ may carry an `AbilityApproval` bound to the definition digest, input,
 principal, tenant, and invocation. Every terminal execution produces an
 `AbilityReceipt`.
 
+A binding uses `result_mode = "raw"` by default. Applications whose handlers
+already return `{ok, result}` / `{ok, code, message, status, details}` may use
+`result_mode = "kujo.result/v1"`. The runtime unwraps success and preserves a
+structured failure in the receipt instead of collapsing it into an invalid
+output error.
+
 ## Runtime services
 
 `execute_ability(registry, invocation, services)` accepts these functions:
