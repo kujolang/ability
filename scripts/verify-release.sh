@@ -4,6 +4,7 @@ set -euo pipefail
 ABILITY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_ROOT="$(cd "$ABILITY_ROOT/.." && pwd)"
 KUJO_BIN="${KUJO_BIN:-$WORKSPACE_ROOT/kujo/target/debug/kujo}"
+FENCE_SCRIPT="${FENCE_SCRIPT:-$WORKSPACE_ROOT/fence/fence.kujo}"
 
 cd "$ABILITY_ROOT"
 bash -n tests/*.sh scripts/*.sh
@@ -20,10 +21,12 @@ fi
 bash tests/run_tests.sh
 bash tests/check_consumers.sh
 
-if [[ -f "$WORKSPACE_ROOT/fence/fence.kujo" ]]; then
-  "$KUJO_BIN" run "$WORKSPACE_ROOT/fence/fence.kujo" -- validate
-  "$KUJO_BIN" run "$WORKSPACE_ROOT/fence/fence.kujo" -- check
+if [[ ! -f "$FENCE_SCRIPT" ]]; then
+  echo "Fence is required for release verification: $FENCE_SCRIPT" >&2
+  exit 1
 fi
+"$KUJO_BIN" run "$FENCE_SCRIPT" -- validate
+"$KUJO_BIN" run "$FENCE_SCRIPT" -- check
 
 git diff --check
 echo "ability release verification: all checks passed"
