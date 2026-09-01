@@ -1,14 +1,5 @@
 export ABILITY_SCHEMA_ID := "kujo.ability/v1"
-
-func dict_get_or(obj, key, fallback) {
-    if type(obj) != "dict" { return fallback }
-    if has_key(obj, key) { return obj[key] }
-    return fallback
-}
-
-func failure(code, message, details) {
-    return {"ok": false, "code": code, "message": message, "details": details}
-}
+from src.internal import dict_get_or, failure, json_digest
 
 func valid_segment(value) {
     segment := trim(to_string(value))
@@ -85,4 +76,10 @@ export validate_ability_value := func(value, schema, value_kind) {
     report := json_schema_validate(value, schema)
     if dict_get_or(report, "valid", false) != true { return failure("ability_" + value_kind + "_invalid", "Ability " + value_kind + " does not satisfy its schema", {"errors": dict_get_or(report, "errors", [])}) }
     return {"ok": true}
+}
+
+export ability_definition_digest := func(definition) {
+    validation := validate_ability_definition(definition)
+    if validation["ok"] == false { return validation }
+    return {"ok": true, "algorithm": "sha256", "digest": json_digest(definition)}
 }

@@ -1,0 +1,135 @@
+from src.contract import ability_definition_digest
+from src.contracts import approval_binding_digest
+from src.registry import create_ability_registry, register_ability_definition, register_ability_binding, register_ability_exposure, resolve_ability, list_ability_definitions
+from src.runtime import execute_ability
+
+func read_definition() {
+    return {
+        "schema": "kujo.ability/v1",
+        "id": "kujo.docs.content.find",
+        "version": "1.0.0",
+        "description": "Find documentation records.",
+        "input_schema": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}}, "additionalProperties": false},
+        "output_schema": {"type": "object", "required": ["count"], "properties": {"count": {"type": "integer"}}, "additionalProperties": false},
+        "effects": [{"kind": "read", "resource": "kujo.docs.content"}],
+        "idempotency": {"mode": "intrinsic"}
+    }
+}
+
+func write_definition() {
+    return {
+        "schema": "kujo.ability/v1",
+        "id": "kujo.cms.content.publish",
+        "version": "1.0.0",
+        "description": "Publish a content record.",
+        "input_schema": {"type": "object", "required": ["id"], "properties": {"id": {"type": "integer"}}, "additionalProperties": false},
+        "output_schema": {"type": "object", "required": ["published"], "properties": {"published": {"type": "boolean"}}, "additionalProperties": false},
+        "effects": [{"kind": "write", "resource": "kujo.cms.content"}],
+        "idempotency": {"mode": "keyed"}
+    }
+}
+
+func read_handler(input, context) { return {"count": len(input["query"])} }
+func invalid_handler(input, context) { return {"unexpected": true} }
+func publish_handler(input, context) { return {"published": true} }
+
+func binding_for(definition, handler, handler_id) {
+    return {"schema": "kujo.ability.binding/v1", "ability_id": definition["id"], "ability_version": definition["version"], "handler_id": handler_id, "handler_version": "1.0.0", "handler": handler, "timeout_ms": 30000, "metadata": {}}
+}
+
+func exposure_for(definition, surface) {
+    return {"schema": "kujo.ability.exposure/v1", "ability_id": definition["id"], "ability_version": definition["version"], "surface": surface, "name": definition["id"], "enabled": true, "public": false, "metadata": {}}
+}
+
+func invocation_for(definition, input, key) {
+    return {
+        "schema": "kujo.ability.invocation/v1",
+        "invocation_id": "invocation-test-1",
+        "ability_id": definition["id"],
+        "ability_version": definition["version"],
+        "definition_digest": "",
+        "input": input,
+        "principal": {"type": "user", "id": "user-1", "tenant_id": "tenant-1", "claims": {}},
+        "request_id": "request-test-1",
+        "trace_id": "trace-test-1",
+        "surface": "sdk",
+        "idempotency_key": key,
+        "approval": {},
+        "metadata": {}
+    }
+}
+
+func allow_policy(definition, invocation, exposure) { return {"schema": "kujo.ability.policy-decision/v1", "decision_id": "decision-allow", "outcome": "allow", "reason": "Authorized by the test policy.", "requirements": [], "policy_id": "kujo.test.policy", "policy_version": "1.0.0"} }
+func deny_policy(definition, invocation, exposure) { return {"schema": "kujo.ability.policy-decision/v1", "decision_id": "decision-deny", "outcome": "deny", "reason": "Denied by the test policy.", "requirements": [], "policy_id": "kujo.test.policy", "policy_version": "1.0.0"} }
+func approval_policy(definition, invocation, exposure) { return {"schema": "kujo.ability.policy-decision/v1", "decision_id": "decision-approval", "outcome": "approval_required", "reason": "Publishing requires approval.", "requirements": ["human"], "policy_id": "kujo.test.policy", "policy_version": "1.0.0"} }
+func fixed_clock() { return 1000 }
+func fixed_id(kind, invocation) { return kind + "-test-1" }
+func audit_ok(phase, invocation, payload) { return {"ok": true, "written": true, "phase": phase, "event_id": "audit-" + phase} }
+func consume_ok(approval, invocation) { return {"ok": true} }
+func begin_ok(key_digest, request_digest, invocation) { return {"state": "started"} }
+func complete_ok(key_digest, request_digest, receipt) { return {"ok": true} }
+
+func services(policy) { return {"policy": policy, "clock_ms": fixed_clock, "id_factory": fixed_id, "audit": audit_ok, "audit_required": true} }
+
+read := read_definition()
+digest_one := ability_definition_digest(read)
+read_reordered := {"version": read["version"], "schema": read["schema"], "output_schema": read["output_schema"], "input_schema": read["input_schema"], "idempotency": read["idempotency"], "id": read["id"], "effects": read["effects"], "description": read["description"]}
+digest_two := ability_definition_digest(read_reordered)
+assert(digest_one["digest"] == digest_two["digest"], "definition digest must be independent of object insertion order")
+
+registry := create_ability_registry()
+definition_result := register_ability_definition(registry, read)
+assert(definition_result["ok"] && definition_result["registered"], "definition must register")
+registry = definition_result["registry"]
+assert(register_ability_definition(registry, read)["registered"] == false, "identical definition registration must be idempotent")
+binding_result := register_ability_binding(registry, binding_for(read, read_handler, "kujo.docs.find.local"))
+assert(binding_result["ok"], "binding must register")
+registry = binding_result["registry"]
+exposure_result := register_ability_exposure(registry, exposure_for(read, "sdk"))
+assert(exposure_result["ok"], "exposure must register")
+registry = exposure_result["registry"]
+assert(resolve_ability(registry, read["id"], "1.0.1", "sdk")["code"] == "ability_definition_not_found", "resolution must require exact versions")
+assert(len(list_ability_definitions(registry, "sdk")) == 1, "enabled surface catalog must contain the Ability")
+
+successful := execute_ability(registry, invocation_for(read, {"query": "ability"}, ""), services(allow_policy))
+assert(successful["ok"], "allowed Ability must execute")
+assert(successful["receipt"]["status"] == "succeeded", "successful invocation must return a succeeded receipt")
+assert(successful["receipt"]["result"]["count"] == 7, "receipt must contain validated handler output")
+assert(successful["receipt"]["definition_digest"] == digest_one["digest"], "receipt must preserve the resolved definition digest")
+
+denied := execute_ability(registry, invocation_for(read, {"query": "ability"}, ""), services(deny_policy))
+assert(denied["receipt"]["status"] == "rejected" && denied["code"] == "ability_forbidden", "policy denial must return a rejected receipt")
+
+invalid_registry := create_ability_registry()
+invalid_step := register_ability_definition(invalid_registry, read); invalid_registry = invalid_step["registry"]
+invalid_step = register_ability_binding(invalid_registry, binding_for(read, invalid_handler, "kujo.docs.find.invalid")); invalid_registry = invalid_step["registry"]
+invalid_step = register_ability_exposure(invalid_registry, exposure_for(read, "sdk")); invalid_registry = invalid_step["registry"]
+invalid_output := execute_ability(invalid_registry, invocation_for(read, {"query": "ability"}, ""), services(allow_policy))
+assert(invalid_output["receipt"]["status"] == "failed" && invalid_output["code"] == "ability_output_invalid", "invalid handler output must fail closed")
+
+write := write_definition()
+write_registry := create_ability_registry()
+write_registration := register_ability_definition(write_registry, write)
+write_registry = write_registration["registry"]
+write_step := register_ability_binding(write_registry, binding_for(write, publish_handler, "kujo.cms.publish.local")); write_registry = write_step["registry"]
+write_step = register_ability_exposure(write_registry, exposure_for(write, "sdk")); write_registry = write_step["registry"]
+write_invocation := invocation_for(write, {"id": 42}, "publish-42")
+write_invocation["definition_digest"] := write_registration["digest"]
+approval_needed := execute_ability(write_registry, write_invocation, services(approval_policy))
+assert(approval_needed["receipt"]["status"] == "approval_required", "policy must suspend an invocation that lacks approval")
+
+approval := {"schema": "kujo.ability.approval/v1", "approval_id": "approval-test-1", "binding_digest": approval_binding_digest(write_invocation), "approved_by": {"type": "user", "id": "approver-1", "tenant_id": "tenant-1", "claims": {}}, "issued_at_ms": 900, "expires_at_ms": 1100, "nonce": "nonce-test-1", "evidence": {}}
+write_invocation["approval"] := approval
+approved_services := services(approval_policy)
+approved_services["consume_approval"] := consume_ok
+approved_services["begin_idempotency"] := begin_ok
+approved_services["complete_idempotency"] := complete_ok
+approved := execute_ability(write_registry, write_invocation, approved_services)
+assert(approved["ok"] && approved["receipt"]["approval_id"] == "approval-test-1", "request-bound approval must execute once through the idempotent path")
+assert(approved["receipt"]["idempotency"]["state"] == "completed", "keyed execution must commit idempotency state")
+
+missing_key_invocation := invocation_for(write, {"id": 43}, "")
+missing_key := execute_ability(write_registry, missing_key_invocation, services(allow_policy))
+assert(missing_key["code"] == "ability_idempotency_key_required", "keyed Ability must reject missing idempotency keys")
+
+print("ability runtime contract tests: all assertions passed")
