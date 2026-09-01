@@ -29,10 +29,11 @@ more restrictive, never less restrictive.
 | MCP | Protocol adapter | Explicit exposure, schema/identity preservation, read-only default, effect-gated mutation |
 
 `tests/check_consumers.sh` is a workspace-level gate. When sibling
-repositories are present, it proves that the CMS and Agents SDK schema copies
-are semantically identical to the canonical schema and runs each consumer's
-targeted compatibility suite. Product-local bindings and projections remain in
-their owning repositories so this package stays independent of protocols,
+repositories are present, it proves that CMS imports a commit-pinned Kennel
+package instead of maintaining a schema copy, checks the remaining Agents SDK
+schema copy until that consumer migrates, and runs each consumer's targeted
+compatibility suite. Product-local bindings and projections remain in their
+owning repositories so this package stays independent of protocols,
 authorization systems, and execution substrates. `tests/runtime_contract_tests.kujo`
 proves the transport-independent registry, policy, approval, idempotency,
 output-validation, and receipt boundary.
