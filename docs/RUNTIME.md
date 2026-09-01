@@ -42,7 +42,9 @@ The idempotency begin state is `started`, `replay`, `in_progress`, or
 The runtime validates that receipt and requires the exact Ability ID, version,
 definition digest, principal, and surface; successful replay output must still
 satisfy the current output schema. Key digests are scoped to tenant and
-principal before they reach the store.
+principal before they reach the store. The key digest uses canonical JSON over
+named tenant, principal type, principal ID, and idempotency-key fields so
+delimiter characters cannot merge distinct identities into one namespace.
 
 ## Approval binding
 
@@ -65,7 +67,8 @@ in-progress records.
 
 After policy has produced a valid decision, rejected input, missing or
 conflicting idempotency state, invalid/replayed approval, and idempotency
-commit failure all return a normalized receipt. Failures before a trustworthy
+commit failure all return a normalized receipt and a completion audit event.
+Failures before a trustworthy
 definition and policy decision exist remain transport-level errors. A commit
 failure receipt uses `idempotency.state = commit_failed`, retains the executed
 result and prior status, and identifies the attempted receipt so operators can
@@ -73,7 +76,8 @@ reconcile an execution whose durable replay record is uncertain.
 
 Exceptions or malformed responses from approval, idempotency, cancellation,
 policy, handler, and audit callbacks are contained at the runtime boundary and
-become deterministic failures. Invalid custom clocks and ID factories fall
+become deterministic failures. Raw callback exception text is never copied
+into public failures or receipts. Invalid custom clocks and ID factories fall
 back to runtime-generated values so receipt construction remains available.
 
 ## Timeout and cancellation boundary
@@ -90,5 +94,8 @@ effect.
 Preflight audit is fail-closed when audit is required. Completion audit also
 defaults to `closed`; if persistence fails after handler execution, the receipt
 reports `ability_audit_failed_after_execution` and retains the execution result
-for controlled reconciliation. Applications may set `audit_failure_mode` to
-`open` only after explicitly accepting that operational tradeoff.
+for controlled reconciliation. Only the exact string `open` enables fail-open
+behavior; missing, null, malformed, and unknown values remain fail-closed.
+Applications may set `audit_failure_mode` to `open` only after explicitly
+accepting that operational tradeoff. Likewise, audit is optional only when
+`audit_required` is the exact boolean `false`.

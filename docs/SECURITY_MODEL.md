@@ -18,13 +18,15 @@ they are never authority by themselves.
 - Consequential execution uses a short-lived approval bound to the exact
   invocation and consumed atomically once.
 - Keyed operations claim and commit a tenant/principal-scoped idempotency record
-  in durable storage. Replayed receipts are validated before use.
+  in durable storage. Canonical named fields prevent ambiguous cross-identity
+  key derivation, and replayed receipts are validated before use.
 - Input and output are validated at execution time, not only at discovery.
-- Audit persistence is fail-closed unless an operator explicitly accepts
-  fail-open behavior; secrets and sensitive payload fields are redacted before
-  durable logging.
+- Every post-policy terminal outcome is completion-audited. Audit persistence
+  is fail-closed unless an operator selects the exact `open` mode; secrets and
+  sensitive payload fields are redacted before durable logging.
 - Handler credentials remain outside definitions, receipts, discovery, and
   client-visible metadata.
+- Raw callback exception text remains outside public failures and receipts.
 - Hard timeout or isolation requirements use a process, container, or Workcell
   adapter; synchronous duration measurement cannot roll back an external effect.
 

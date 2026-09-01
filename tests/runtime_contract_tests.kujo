@@ -33,6 +33,7 @@ func read_handler(input, context) { return {"count": len(input["query"])} }
 func invalid_handler(input, context) { return {"unexpected": true} }
 func publish_handler(input, context) { return {"published": true} }
 func envelope_failure_handler(input, context) { return {"ok": false, "status": 409, "code": "content_locked", "message": "Content is locked", "details": {"entry_id": 42}} }
+func throwing_handler(input, context) { return parse_json("ability-marker-secret-handler") }
 
 func binding_for(definition, handler, handler_id) {
     return {"schema": "kujo.ability.binding/v1", "ability_id": definition["id"], "ability_version": definition["version"], "handler_id": handler_id, "handler_version": "1.0.0", "handler": handler, "timeout_ms": 30000, "metadata": {}}
@@ -63,6 +64,7 @@ func invocation_for(definition, input, key) {
 func allow_policy(definition, invocation, exposure) { return {"schema": "kujo.ability.policy-decision/v1", "decision_id": "decision-allow", "outcome": "allow", "reason": "Authorized by the test policy.", "requirements": [], "policy_id": "kujo.test.policy", "policy_version": "1.0.0"} }
 func deny_policy(definition, invocation, exposure) { return {"schema": "kujo.ability.policy-decision/v1", "decision_id": "decision-deny", "outcome": "deny", "reason": "Denied by the test policy.", "requirements": [], "policy_id": "kujo.test.policy", "policy_version": "1.0.0"} }
 func approval_policy(definition, invocation, exposure) { return {"schema": "kujo.ability.policy-decision/v1", "decision_id": "decision-approval", "outcome": "approval_required", "reason": "Publishing requires approval.", "requirements": ["human"], "policy_id": "kujo.test.policy", "policy_version": "1.0.0"} }
+func throwing_policy(definition, invocation, exposure) { return parse_json("ability-marker-secret-policy") }
 func fixed_clock() { return 1000 }
 func fixed_id(kind, invocation) { return kind + "-test-1" }
 func audit_ok(phase, invocation, payload) { return {"ok": true, "written": true, "phase": phase, "event_id": "audit-" + phase} }
@@ -78,6 +80,7 @@ func audit_completion_fail(phase, invocation, payload) {
     if phase == "completed" { return {"ok": false} }
     return {"ok": true, "written": true, "phase": phase}
 }
+func audit_throw(phase, invocation, payload) { return parse_json("ability-marker-secret-audit") }
 
 func services(policy) { return {"policy": policy, "clock_ms": fixed_clock, "id_factory": fixed_id, "audit": audit_ok, "audit_required": true} }
 
@@ -110,6 +113,16 @@ assert(successful["receipt"]["definition_digest"] == digest_one["digest"], "rece
 denied := execute_ability(registry, invocation_for(read, {"query": "ability"}, ""), services(deny_policy))
 assert(denied["receipt"]["status"] == "rejected" && denied["code"] == "ability_forbidden", "policy denial must return a rejected receipt")
 
+throwing_policy_result := execute_ability(registry, invocation_for(read, {"query": "ability"}, ""), services(throwing_policy))
+assert(throwing_policy_result["code"] == "ability_policy_failed", "policy exceptions must become deterministic failures")
+assert(index_of(to_json(throwing_policy_result), "ability-marker-secret-policy") == -1, "policy exception text must not reach the public failure")
+
+throwing_audit_services := services(allow_policy)
+throwing_audit_services["audit"] := audit_throw
+throwing_audit_result := execute_ability(registry, invocation_for(read, {"query": "ability"}, ""), throwing_audit_services)
+assert(throwing_audit_result["code"] == "ability_audit_failed", "audit exceptions must become deterministic failures")
+assert(index_of(to_json(throwing_audit_result), "ability-marker-secret-audit") == -1, "audit exception text must not reach the public failure")
+
 invalid_registry := create_ability_registry()
 invalid_step := register_ability_definition(invalid_registry, read); invalid_registry = invalid_step["registry"]
 invalid_step = register_ability_binding(invalid_registry, binding_for(read, invalid_handler, "kujo.docs.find.invalid")); invalid_registry = invalid_step["registry"]
@@ -126,6 +139,14 @@ envelope_step = register_ability_exposure(envelope_registry, exposure_for(read, 
 envelope_failure := execute_ability(envelope_registry, invocation_for(read, {"query": "ability"}, ""), services(allow_policy))
 assert(envelope_failure["receipt"]["status"] == "failed" && envelope_failure["code"] == "content_locked", "structured handler failures must survive in the receipt")
 assert(envelope_failure["receipt"]["error"]["details"]["http_status"] == 409, "structured handler status must be available to protocol adapters")
+
+throwing_registry := create_ability_registry()
+throwing_step := register_ability_definition(throwing_registry, read); throwing_registry = throwing_step["registry"]
+throwing_step = register_ability_binding(throwing_registry, binding_for(read, throwing_handler, "kujo.docs.find.throwing")); throwing_registry = throwing_step["registry"]
+throwing_step = register_ability_exposure(throwing_registry, exposure_for(read, "sdk")); throwing_registry = throwing_step["registry"]
+throwing_handler_result := execute_ability(throwing_registry, invocation_for(read, {"query": "ability"}, ""), services(allow_policy))
+assert(throwing_handler_result["code"] == "ability_handler_failed", "handler exceptions must become deterministic receipts")
+assert(index_of(to_json(throwing_handler_result), "ability-marker-secret-handler") == -1, "handler exception text must not reach the public receipt")
 
 write := write_definition()
 write_registry := create_ability_registry()
@@ -150,6 +171,20 @@ approved := execute_ability(write_registry, write_invocation, approved_services)
 assert(approved["ok"] && approved["receipt"]["approval_id"] == "approval-test-1", "request-bound approval must execute once through the idempotent path")
 assert(approved["receipt"]["idempotency"]["state"] == "completed", "keyed execution must commit idempotency state")
 
+collision_one := invocation_for(write, {"id": 52}, "shared:key")
+collision_one["principal"] := {"type": "user", "id": "c", "tenant_id": "a:b", "claims": {}}
+collision_one_services := services(allow_policy)
+collision_one_services["begin_idempotency"] := begin_ok
+collision_one_services["complete_idempotency"] := complete_ok
+collision_one_result := execute_ability(write_registry, collision_one, collision_one_services)
+collision_two := invocation_for(write, {"id": 52}, "shared:key")
+collision_two["principal"] := {"type": "user", "id": "b:c", "tenant_id": "a", "claims": {}}
+collision_two_services := services(allow_policy)
+collision_two_services["begin_idempotency"] := begin_ok
+collision_two_services["complete_idempotency"] := complete_ok
+collision_two_result := execute_ability(write_registry, collision_two, collision_two_services)
+assert(collision_one_result["receipt"]["idempotency"]["key_digest"] != collision_two_result["receipt"]["idempotency"]["key_digest"], "canonical idempotency scopes must distinguish delimiter-bearing identities")
+
 replay_services := services(approval_policy)
 replay_services["consume_approval"] := consume_fail
 replay_services["begin_idempotency"] := func(key_digest, request_digest, invocation) { return {"state": "replay", "receipt": approved["receipt"]} }
@@ -167,6 +202,23 @@ mismatch_services["begin_idempotency"] := func(key_digest, request_digest, invoc
 mismatch_services["complete_idempotency"] := complete_ok
 mismatched_replay := execute_ability(write_registry, write_invocation, mismatch_services)
 assert(mismatched_replay["code"] == "ability_idempotency_replay_mismatch", "replay receipts must match the invocation principal and surface")
+
+mismatch_audit_services := services(approval_policy)
+mismatch_audit_services["audit"] := audit_completion_fail
+mismatch_audit_services["consume_approval"] := consume_ok
+mismatch_audit_services["begin_idempotency"] := func(key_digest, request_digest, invocation) { return {"state": "replay", "receipt": mismatched_receipt} }
+mismatch_audit_services["complete_idempotency"] := complete_ok
+mismatch_audit := execute_ability(write_registry, write_invocation, mismatch_audit_services)
+assert(mismatch_audit["code"] == "ability_audit_failed_after_execution", "invalid replay outcomes must be completion-audited")
+
+invalid_approval_invocation := parse_json(to_json(write_invocation))
+invalid_approval_value := invalid_approval_invocation["approval"]
+invalid_approval_value["binding_digest"] := "sha256:invalid-binding"
+invalid_approval_invocation["approval"] := invalid_approval_value
+invalid_approval_audit_services := services(approval_policy)
+invalid_approval_audit_services["audit"] := audit_completion_fail
+invalid_approval_audit := execute_ability(write_registry, invalid_approval_invocation, invalid_approval_audit_services)
+assert(invalid_approval_audit["code"] == "ability_audit_failed_after_execution", "invalid approval outcomes must be completion-audited")
 
 missing_key_invocation := invocation_for(write, {"id": 43}, "")
 missing_key := execute_ability(write_registry, missing_key_invocation, services(allow_policy))
@@ -219,5 +271,57 @@ open_audit_services["audit"] := audit_completion_fail
 open_audit_services["audit_failure_mode"] := "open"
 open_audit := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), open_audit_services)
 assert(open_audit["ok"] && open_audit["receipt"]["audit"]["ok"] == false, "explicit audit fail-open mode must preserve failure evidence without changing the execution outcome")
+
+invalid_mode_services := services(allow_policy)
+invalid_mode_services["audit"] := audit_completion_fail
+invalid_mode_services["audit_failure_mode"] := "clsoed"
+invalid_mode := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), invalid_mode_services)
+assert(invalid_mode["code"] == "ability_audit_failed_after_execution", "unknown audit modes must remain fail-closed")
+null_mode_services := services(allow_policy)
+null_mode_services["audit"] := audit_completion_fail
+null_mode_services["audit_failure_mode"] := null
+null_mode := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), null_mode_services)
+assert(null_mode["code"] == "ability_audit_failed_after_execution", "null audit mode must remain fail-closed")
+boolean_mode_services := services(allow_policy)
+boolean_mode_services["audit"] := audit_completion_fail
+boolean_mode_services["audit_failure_mode"] := false
+boolean_mode := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), boolean_mode_services)
+assert(boolean_mode["code"] == "ability_audit_failed_after_execution", "non-string audit mode must remain fail-closed")
+
+denied_audit_services := services(deny_policy)
+denied_audit_services["audit"] := audit_completion_fail
+denied_audit := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), denied_audit_services)
+assert(denied_audit["code"] == "ability_audit_failed_after_execution" && denied_audit["receipt"]["error"]["details"]["execution_status"] == "rejected", "policy denials must completion-audit their terminal status")
+approval_audit_services := services(approval_policy)
+approval_audit_services["audit"] := audit_completion_fail
+approval_audit := execute_ability(write_registry, invocation_for(write, {"id": 60}, ""), approval_audit_services)
+assert(approval_audit["code"] == "ability_audit_failed_after_execution" && approval_audit["receipt"]["error"]["details"]["execution_status"] == "approval_required", "approval-required outcomes must be completion-audited")
+invalid_input_audit_services := services(allow_policy)
+invalid_input_audit_services["audit"] := audit_completion_fail
+invalid_input_audit := execute_ability(registry, invocation_for(read, {"query": 12}, ""), invalid_input_audit_services)
+assert(invalid_input_audit["code"] == "ability_audit_failed_after_execution", "invalid input outcomes must be completion-audited")
+missing_key_audit_services := services(allow_policy)
+missing_key_audit_services["audit"] := audit_completion_fail
+missing_key_audit := execute_ability(write_registry, invocation_for(write, {"id": 61}, ""), missing_key_audit_services)
+assert(missing_key_audit["code"] == "ability_audit_failed_after_execution", "missing idempotency key outcomes must be completion-audited")
+in_progress_audit_services := services(allow_policy)
+in_progress_audit_services["audit"] := audit_completion_fail
+in_progress_audit_services["begin_idempotency"] := begin_in_progress
+in_progress_audit_services["complete_idempotency"] := complete_ok
+in_progress_audit := execute_ability(write_registry, invocation_for(write, {"id": 62}, "publish-62"), in_progress_audit_services)
+assert(in_progress_audit["code"] == "ability_audit_failed_after_execution", "in-progress idempotency outcomes must be completion-audited")
+conflict_audit_services := services(allow_policy)
+conflict_audit_services["audit"] := audit_completion_fail
+conflict_audit_services["begin_idempotency"] := begin_conflict
+conflict_audit_services["complete_idempotency"] := complete_ok
+conflict_audit := execute_ability(write_registry, invocation_for(write, {"id": 63}, "publish-63"), conflict_audit_services)
+assert(conflict_audit["code"] == "ability_audit_failed_after_execution", "conflicting idempotency outcomes must be completion-audited")
+
+audit_optional_services := {"policy": allow_policy, "clock_ms": fixed_clock, "id_factory": fixed_id, "audit_required": false}
+audit_optional := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), audit_optional_services)
+assert(audit_optional["ok"] && audit_optional["receipt"]["audit"]["written"] == false, "exact false may explicitly disable audit persistence")
+audit_malformed_services := {"policy": allow_policy, "clock_ms": fixed_clock, "id_factory": fixed_id, "audit_required": "false"}
+audit_malformed := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), audit_malformed_services)
+assert(audit_malformed["code"] == "ability_audit_unavailable", "malformed audit_required values must remain fail-closed")
 
 print("ability runtime contract tests: all assertions passed")

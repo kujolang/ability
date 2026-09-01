@@ -6,6 +6,10 @@
   approval-gated invocation has not yet received approval.
 - Add tag/version verification, deterministic source archives, SPDX SBOMs,
   checksums, and keyless provenance attestations to the release workflow.
+- Redact callback exception text from public failures and receipts.
+- Completion-audit every post-policy terminal outcome and treat only the exact
+  `open` audit mode as fail-open.
+- Derive idempotency namespaces from canonical tenant and principal fields.
 
 ## 1.0.0 - 2026-09-01
 
