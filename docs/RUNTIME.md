@@ -39,7 +39,10 @@ output error.
 
 The idempotency begin state is `started`, `replay`, `in_progress`, or
 `conflict`. A replay response must contain the previously committed receipt.
-Key digests are scoped to tenant and principal before they reach the store.
+The runtime validates that receipt and requires the exact Ability ID, version,
+definition digest, principal, and surface; successful replay output must still
+satisfy the current output schema. Key digests are scoped to tenant and
+principal before they reach the store.
 
 ## Approval binding
 
@@ -55,13 +58,23 @@ Key digests are scoped to tenant and principal before they reach the store.
 An approval has an issuance time, expiration time, nonce, approver identity,
 and evidence object. Static validation is not enough: the application must
 atomically consume the approval through `consume_approval` to prevent replay.
+For keyed calls, the runtime checks a durable replay before consuming the
+one-time approval. A new idempotency claim is finalized even when approval
+consumption or cancellation produces a terminal failure, preventing abandoned
+in-progress records.
 
 After policy has produced a valid decision, rejected input, missing or
 conflicting idempotency state, invalid/replayed approval, and idempotency
 commit failure all return a normalized receipt. Failures before a trustworthy
 definition and policy decision exist remain transport-level errors. A commit
-failure receipt uses `idempotency.state = commit_failed` so operators can
+failure receipt uses `idempotency.state = commit_failed`, retains the executed
+result and prior status, and identifies the attempted receipt so operators can
 reconcile an execution whose durable replay record is uncertain.
+
+Exceptions or malformed responses from approval, idempotency, cancellation,
+policy, handler, and audit callbacks are contained at the runtime boundary and
+become deterministic failures. Invalid custom clocks and ID factories fall
+back to runtime-generated values so receipt construction remains available.
 
 ## Timeout and cancellation boundary
 

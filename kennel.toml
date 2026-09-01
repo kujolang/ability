@@ -1,6 +1,6 @@
 [package]
 name = "ability"
-version = "0.4.0"
+version = "1.0.0"
 description = "Portable semantic operation contracts for the Kujo ecosystem."
 license = "MIT"
 authors = ["Kujolang <contact@kujolang.ai>"]
@@ -12,16 +12,16 @@ categories = ["ai", "developer-tools"]
 readme = "README.md"
 
 [package.status]
-stage = "experimental"
-stability = "unstable"
+stage = "production"
+stability = "stable"
 public_api = true
-notes = "V1 definition contract plus experimental shared binding, exposure, invocation, policy, approval, receipt, registry, and execution primitives."
+notes = "Stable v1 portable definition, execution contracts, exact registry, fail-closed runtime, and conformance gates."
 
 [kujo]
-minimum_version = "0.1.0"
+minimum_version = "1.2.0"
 entry = "src/index.kujo"
 sources = ["src", "."]
-includes = ["README.md", "CHANGELOG.md", "docs", "schema", "tests", "examples", "fence.toml"]
+includes = ["README.md", "CHANGELOG.md", "SECURITY.md", "SUPPORT.md", "docs", "schema", "tests", "examples", "scripts", "fence.toml"]
 excludes = [".git", "kennel_packages", "dist", "build", "node_modules"]
 
 [build]
@@ -35,6 +35,7 @@ artifacts = []
 
 [scripts]
 test = "bash tests/run_tests.sh"
+verify = "bash scripts/verify-release.sh"
 
 [package.exports]
 ability = "ability.kujo"

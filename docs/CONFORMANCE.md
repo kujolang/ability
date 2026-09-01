@@ -14,9 +14,11 @@ A conforming execution consumer must:
 4. evaluate policy using server-resolved principal and tenant identity;
 5. bind approval to the exact invocation and consume it once;
 6. enforce keyed idempotency before invoking a handler;
-7. validate both input and output;
-8. preserve request and trace correlation in the receipt; and
-9. return a normalized receipt for terminal execution outcomes.
+7. validate stored replay receipts before returning them;
+8. validate both input and output;
+9. preserve request and trace correlation in the receipt;
+10. contain application callback failures; and
+11. return a normalized receipt for terminal execution outcomes.
 
 Protocol adapters may rename a projected tool, but they must preserve the
 Ability ID, version, and definition digest in metadata. They may make exposure

@@ -39,13 +39,24 @@ policy, and exposure adapters.
 - Definitions are transport-neutral. MCP, agent Tool, REST, CLI, and WebMCP
   descriptors are explicit projections, not synonyms for an Ability.
 
-## Compatibility
+## Stability and compatibility
+
+The package API, definition schema, and execution receipt contract are stable
+as of package `1.0.0`. Production stability applies to the portable library
+boundary; a deployment is conformant only when its application-owned policy,
+identity, approval, idempotency, audit, timeout/preemption, and handler
+services satisfy the operational requirements in
+`docs/PRODUCTION_READINESS.md`.
 
 Breaking changes to required input, output meaning, effects, or idempotency
 require a new Ability major version. Additive optional fields may use a minor
 version only when existing consumers remain correct. Protocol-local names have
 their own compatibility policy and must preserve canonical Ability identity in
 metadata.
+
+See `docs/COMPATIBILITY.md` for the package/version matrix and deprecation
+policy, `SECURITY.md` for vulnerability reporting, and `SUPPORT.md` for support
+scope.
 
 ## Execution pipeline
 
@@ -57,9 +68,10 @@ resolve exact definition/binding/exposure
   -> verify definition digest
   -> write preflight audit evidence
   -> evaluate application-owned policy
-  -> validate and consume request-bound approval when required
   -> validate input
-  -> begin keyed idempotency record when required
+  -> validate request-bound approval when required
+  -> begin or replay keyed idempotency record when required
+  -> consume a new approval exactly once
   -> check cancellation
   -> invoke handler
   -> enforce declared timeout result
@@ -78,11 +90,10 @@ approval and idempotency storage, audit persistence, and concrete handlers.
 They provide those capabilities through narrow runtime service functions.
 See `docs/RUNTIME.md`.
 
-## Validate
+## Verify a release
 
 ```bash
-bash tests/run_tests.sh
-bash tests/check_consumers.sh
+bash scripts/verify-release.sh
 ```
 
 This package intentionally does not provide a process-global registry, remote

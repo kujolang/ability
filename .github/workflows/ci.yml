@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
+
+      - name: Build pinned Kujo runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/kujolang/kujo.git /tmp/kujo-runtime
+          git -C /tmp/kujo-runtime checkout eaff4f35eb024f1a217400dbb9e838e1cf012c36
+          cargo build --release --locked --manifest-path /tmp/kujo-runtime/Cargo.toml --bin kujo
+          echo "KUJO_BIN=/tmp/kujo-runtime/target/release/kujo" >> "$GITHUB_ENV"
+
+      - name: Verify package
+        shell: bash
+        run: bash scripts/verify-release.sh
