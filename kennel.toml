@@ -1,0 +1,40 @@
+[package]
+name = "ability"
+version = "0.1.0"
+description = "Portable semantic operation contracts for the Kujo ecosystem."
+license = "MIT"
+authors = ["Kujolang <contact@kujolang.ai>"]
+homepage = "https://github.com/kujolang/ability"
+repository = "https://github.com/kujolang/ability"
+documentation = "https://github.com/kujolang/ability/blob/main/README.md"
+keywords = ["kujo", "ability", "contracts", "agents", "mcp"]
+categories = ["ai", "developer-tools"]
+readme = "README.md"
+
+[package.status]
+stage = "experimental"
+stability = "unstable"
+public_api = true
+notes = "V1 contract proven by CMS plus Agents SDK and MCP compatibility adapters."
+
+[kujo]
+minimum_version = "0.1.0"
+entry = "src/contract.kujo"
+sources = ["src"]
+includes = ["README.md", "schema", "tests", "examples"]
+excludes = [".git", "kennel_packages", "dist", "build", "node_modules"]
+
+[build]
+command = ""
+output = "dist"
+artifacts = []
+
+[dependencies]
+
+[dev-dependencies]
+
+[scripts]
+test = "bash tests/run_tests.sh"
+
+[package.exports]
+contract = "src/contract.kujo"
