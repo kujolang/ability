@@ -5,11 +5,11 @@ fail_on = "error"
 unknown_dependency_policy = "deny"
 
 [scan]
-include = ["src/**/*.kujo"]
+include = ["ability.kujo", "src/**/*.kujo"]
 exclude = ["dist/**", "build/**", "kennel_packages/**", ".git/**"]
 
 [zones.public]
-paths = ["src/index.kujo"]
+paths = ["ability.kujo", "src/index.kujo"]
 can_depend_on = ["definition", "execution_contracts", "registry", "runtime"]
 cannot_depend_on = []
 external_allow = []

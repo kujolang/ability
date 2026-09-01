@@ -32,6 +32,7 @@ policy, and exposure adapters.
   rejects definition, binding, and exposure collisions.
 - `src/runtime.kujo` provides the transport-independent execution pipeline.
 - `src/index.kujo` is the package entry point.
+- `ability.kujo` is the Kennel-installed root import shim (`from ability import ...`).
 - `docs/CONFORMANCE.md` records producer and adapter responsibilities.
 - Effect kinds are `read`, `write`, `delete`, and `external`.
 - Idempotency modes are `intrinsic`, `keyed`, and `none`.
