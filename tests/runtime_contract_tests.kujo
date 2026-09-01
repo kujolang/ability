@@ -137,6 +137,8 @@ write_invocation := invocation_for(write, {"id": 42}, "publish-42")
 write_invocation["definition_digest"] := write_registration["digest"]
 approval_needed := execute_ability(write_registry, write_invocation, services(approval_policy))
 assert(approval_needed["receipt"]["status"] == "approval_required", "policy must suspend an invocation that lacks approval")
+approval_before_key := execute_ability(write_registry, invocation_for(write, {"id": 42}, ""), services(approval_policy))
+assert(approval_before_key["receipt"]["status"] == "approval_required", "approval request discovery must precede keyed execution requirements")
 
 approval := {"schema": "kujo.ability.approval/v1", "approval_id": "approval-test-1", "binding_digest": approval_binding_digest(write_invocation), "approved_by": {"type": "user", "id": "approver-1", "tenant_id": "tenant-1", "claims": {}}, "issued_at_ms": 900, "expires_at_ms": 1100, "nonce": "nonce-test-1", "evidence": {}}
 write_invocation["approval"] := approval

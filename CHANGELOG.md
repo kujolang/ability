@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 - 2026-09-01
+
+- Return `approval_required` before requiring a keyed idempotency key when an
+  approval-gated invocation has not yet received approval.
+
 ## 1.0.0 - 2026-09-01
 
 - Stabilize the v1 package contract and publish compatibility, support,

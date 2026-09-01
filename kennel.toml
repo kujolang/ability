@@ -1,6 +1,6 @@
 [package]
 name = "ability"
-version = "1.0.0"
+version = "1.0.1"
 description = "Portable semantic operation contracts for the Kujo ecosystem."
 license = "MIT"
 authors = ["Kujolang <contact@kujolang.ai>"]

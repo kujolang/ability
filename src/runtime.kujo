@@ -168,7 +168,6 @@ export execute_ability := func(registry, invocation_input, services_input) {
     idempotency := {"mode": mode, "state": "not_applicable", "key_digest": "", "request_digest": ""}
     begin_idempotency := service_function(services, "begin_idempotency")
     idempotency_key := dict_get_or(invocation, "idempotency_key", "")
-    if mode == "keyed" && idempotency_key == "" { return early_failure_receipt(services, invocation, resolved, decision, "rejected", "ability_idempotency_key_required", "This Ability requires an idempotency key", {}, started_at_ms, idempotency, preflight_audit) }
     approval_id := ""
     approval := {}
     consume_approval := null
@@ -184,6 +183,7 @@ export execute_ability := func(registry, invocation_input, services_input) {
         consume_approval = service_function(services, "consume_approval")
         if type(consume_approval) != "function" { return early_failure_receipt(services, invocation, resolved, decision, "failed", "ability_approval_store_unavailable", "Approval-required execution needs a one-time approval store", {}, started_at_ms, {"mode": mode, "state": "not_started"}, preflight_audit) }
     }
+    if mode == "keyed" && idempotency_key == "" { return early_failure_receipt(services, invocation, resolved, decision, "rejected", "ability_idempotency_key_required", "This Ability requires an idempotency key", {}, started_at_ms, idempotency, preflight_audit) }
     if mode == "keyed" && type(begin_idempotency) != "function" { return early_failure_receipt(services, invocation, resolved, decision, "failed", "ability_idempotency_store_unavailable", "Keyed Ability execution requires an idempotency store", {}, started_at_ms, idempotency, preflight_audit) }
     if mode == "keyed" && type(service_function(services, "complete_idempotency")) != "function" { return early_failure_receipt(services, invocation, resolved, decision, "failed", "ability_idempotency_store_unavailable", "Keyed Ability completion requires an idempotency store", {}, started_at_ms, idempotency, preflight_audit) }
     if mode == "keyed" {
