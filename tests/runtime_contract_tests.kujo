@@ -71,6 +71,13 @@ func consume_fail(approval, invocation) { return {"ok": false} }
 func begin_ok(key_digest, request_digest, invocation) { return {"state": "started"} }
 func complete_ok(key_digest, request_digest, receipt) { return {"ok": true} }
 func complete_fail(key_digest, request_digest, receipt) { return {"ok": false} }
+func begin_in_progress(key_digest, request_digest, invocation) { return {"state": "in_progress"} }
+func begin_conflict(key_digest, request_digest, invocation) { return {"state": "conflict"} }
+func cancelled_true(invocation) { return true }
+func audit_completion_fail(phase, invocation, payload) {
+    if phase == "completed" { return {"ok": false} }
+    return {"ok": true, "written": true, "phase": phase}
+}
 
 func services(policy) { return {"policy": policy, "clock_ms": fixed_clock, "id_factory": fixed_id, "audit": audit_ok, "audit_required": true} }
 
@@ -141,6 +148,24 @@ approved := execute_ability(write_registry, write_invocation, approved_services)
 assert(approved["ok"] && approved["receipt"]["approval_id"] == "approval-test-1", "request-bound approval must execute once through the idempotent path")
 assert(approved["receipt"]["idempotency"]["state"] == "completed", "keyed execution must commit idempotency state")
 
+replay_services := services(approval_policy)
+replay_services["consume_approval"] := consume_fail
+replay_services["begin_idempotency"] := func(key_digest, request_digest, invocation) { return {"state": "replay", "receipt": approved["receipt"]} }
+replay_services["complete_idempotency"] := complete_ok
+replay := execute_ability(write_registry, write_invocation, replay_services)
+assert(replay["ok"] && replay["replayed"] == true && replay["receipt"]["receipt_id"] == approved["receipt"]["receipt_id"], "a validated keyed replay must return before consuming approval again")
+
+mismatched_receipt := parse_json(to_json(approved["receipt"]))
+mismatched_principal := mismatched_receipt["principal"]
+mismatched_principal["id"] := "user-2"
+mismatched_receipt["principal"] := mismatched_principal
+mismatch_services := services(approval_policy)
+mismatch_services["consume_approval"] := consume_ok
+mismatch_services["begin_idempotency"] := func(key_digest, request_digest, invocation) { return {"state": "replay", "receipt": mismatched_receipt} }
+mismatch_services["complete_idempotency"] := complete_ok
+mismatched_replay := execute_ability(write_registry, write_invocation, mismatch_services)
+assert(mismatched_replay["code"] == "ability_idempotency_replay_mismatch", "replay receipts must match the invocation principal and surface")
+
 missing_key_invocation := invocation_for(write, {"id": 43}, "")
 missing_key := execute_ability(write_registry, missing_key_invocation, services(allow_policy))
 assert(missing_key["code"] == "ability_idempotency_key_required", "keyed Ability must reject missing idempotency keys")
@@ -148,6 +173,8 @@ assert(missing_key["receipt"]["status"] == "rejected", "post-policy idempotency 
 
 replayed_services := services(approval_policy)
 replayed_services["consume_approval"] := consume_fail
+replayed_services["begin_idempotency"] := begin_ok
+replayed_services["complete_idempotency"] := complete_ok
 replayed := execute_ability(write_registry, write_invocation, replayed_services)
 assert(replayed["code"] == "ability_approval_replayed" && replayed["receipt"]["status"] == "rejected", "approval replay must return a rejected receipt")
 
@@ -157,5 +184,38 @@ commit_failure_services["complete_idempotency"] := complete_fail
 commit_failure := execute_ability(write_registry, invocation_for(write, {"id": 44}, "publish-44"), commit_failure_services)
 assert(commit_failure["code"] == "ability_idempotency_commit_failed", "idempotency commit failure must preserve its error code")
 assert(commit_failure["receipt"]["status"] == "failed" && commit_failure["receipt"]["idempotency"]["state"] == "commit_failed", "idempotency commit failure must retain a reconciliable receipt")
+assert(commit_failure["receipt"]["result"]["published"] == true && commit_failure["receipt"]["error"]["details"]["execution_status"] == "succeeded", "commit failure evidence must retain the executed result and prior outcome")
+
+in_progress_services := services(allow_policy)
+in_progress_services["begin_idempotency"] := begin_in_progress
+in_progress_services["complete_idempotency"] := complete_ok
+in_progress := execute_ability(write_registry, invocation_for(write, {"id": 45}, "publish-45"), in_progress_services)
+assert(in_progress["code"] == "ability_invocation_in_progress" && in_progress["receipt"]["status"] == "rejected", "an in-progress keyed invocation must not execute again")
+
+conflict_services := services(allow_policy)
+conflict_services["begin_idempotency"] := begin_conflict
+conflict_services["complete_idempotency"] := complete_ok
+conflict := execute_ability(write_registry, invocation_for(write, {"id": 46}, "publish-46"), conflict_services)
+assert(conflict["code"] == "ability_idempotency_conflict" && conflict["receipt"]["status"] == "rejected", "a reused key with different input must be rejected")
+
+cancelled_services := services(allow_policy)
+cancelled_services["begin_idempotency"] := begin_ok
+cancelled_services["complete_idempotency"] := complete_ok
+cancelled_services["cancelled"] := cancelled_true
+cancelled := execute_ability(write_registry, invocation_for(write, {"id": 47}, "publish-47"), cancelled_services)
+assert(cancelled["code"] == "ability_cancelled" && cancelled["receipt"]["status"] == "cancelled", "pre-handler cancellation must produce a terminal receipt")
+assert(cancelled["receipt"]["idempotency"]["state"] == "completed", "keyed cancellation must commit a terminal idempotency receipt")
+
+closed_audit_services := services(allow_policy)
+closed_audit_services["audit"] := audit_completion_fail
+closed_audit := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), closed_audit_services)
+assert(closed_audit["code"] == "ability_audit_failed_after_execution" && closed_audit["receipt"]["status"] == "failed", "completion audit failure must fail closed by default")
+assert(closed_audit["receipt"]["result"]["count"] == 5, "post-execution audit failure must retain the executed result for reconciliation")
+
+open_audit_services := services(allow_policy)
+open_audit_services["audit"] := audit_completion_fail
+open_audit_services["audit_failure_mode"] := "open"
+open_audit := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), open_audit_services)
+assert(open_audit["ok"] && open_audit["receipt"]["audit"]["ok"] == false, "explicit audit fail-open mode must preserve failure evidence without changing the execution outcome")
 
 print("ability runtime contract tests: all assertions passed")
