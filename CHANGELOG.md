@@ -4,6 +4,8 @@
 
 - Return `approval_required` before requiring a keyed idempotency key when an
   approval-gated invocation has not yet received approval.
+- Add tag/version verification, deterministic source archives, SPDX SBOMs,
+  checksums, and keyless provenance attestations to the release workflow.
 
 ## 1.0.0 - 2026-09-01
 

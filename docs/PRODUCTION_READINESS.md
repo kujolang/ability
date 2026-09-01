@@ -14,7 +14,8 @@ boundary; an application is not production-ready merely because it imports it.
 - [x] Validated durable replay and callback-failure containment.
 - [x] Terminal receipts for cancellation and post-policy failures.
 - [x] Architecture fence, release verification, compatibility policy, support
-  policy, security model, and pinned CI runtime.
+  policy, security model, pinned CI runtime, SBOM generation, checksums, and
+  keyless release provenance attestation.
 
 ## CMS producer and execution gateway
 
