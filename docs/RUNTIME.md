@@ -1,0 +1,68 @@
+# Ability Runtime
+
+The Ability runtime is an application-embedded gateway. It does not open a
+port, authenticate credentials, or persist data. REST, MCP, Agents SDK, CLI,
+and WebMCP adapters call the same `execute_ability` function after their
+transport boundary has produced a canonical invocation.
+
+## Separation of concerns
+
+An Ability definition describes the semantic operation. An `AbilityBinding`
+connects one exact definition version to a handler. An `AbilityExposure`
+allows that exact version on one named surface. An `AbilityInvocation` carries
+the server-resolved principal, tenant, input, and correlation identifiers.
+Application policy produces an `AbilityPolicyDecision`. Consequential calls
+may carry an `AbilityApproval` bound to the definition digest, input,
+principal, tenant, and invocation. Every terminal execution produces an
+`AbilityReceipt`.
+
+## Runtime services
+
+`execute_ability(registry, invocation, services)` accepts these functions:
+
+| Service | Required when | Contract |
+|---|---|---|
+| `policy` | Always | `(definition, invocation, exposure) -> policy decision` |
+| `audit` | By default | `(phase, invocation, payload) -> {ok: true, ...}` |
+| `consume_approval` | Policy requires approval | `(approval, invocation) -> {ok: true}` exactly once |
+| `begin_idempotency` | Definition uses `keyed` | `(key_digest, request_digest, invocation) -> {state}` |
+| `complete_idempotency` | Definition uses `keyed` | `(key_digest, request_digest, receipt) -> {ok: true}` |
+| `cancelled` | Optional | `(invocation) -> boolean` |
+| `clock_ms` | Optional | `() -> integer milliseconds` |
+| `id_factory` | Optional | `(kind, invocation) -> bounded unique text` |
+
+The idempotency begin state is `started`, `replay`, `in_progress`, or
+`conflict`. A replay response must contain the previously committed receipt.
+Key digests are scoped to tenant and principal before they reach the store.
+
+## Approval binding
+
+`approval_binding_digest(invocation)` covers:
+
+- Ability ID and exact version;
+- canonical definition digest;
+- canonical input digest;
+- canonical principal digest;
+- tenant ID; and
+- invocation ID.
+
+An approval has an issuance time, expiration time, nonce, approver identity,
+and evidence object. Static validation is not enough: the application must
+atomically consume the approval through `consume_approval` to prevent replay.
+
+## Timeout and cancellation boundary
+
+Cancellation is checked before handler entry and is available to the handler
+through the execution context. The runtime measures synchronous handler
+duration and marks an over-budget result as timed out. A process or Workcell
+adapter is responsible for hard preemption when a handler must be forcibly
+terminated; post-execution timeout detection cannot undo an external side
+effect.
+
+## Audit failure policy
+
+Preflight audit is fail-closed when audit is required. Completion audit also
+defaults to `closed`; if persistence fails after handler execution, the receipt
+reports `ability_audit_failed_after_execution` and retains the execution result
+for controlled reconciliation. Applications may set `audit_failure_mode` to
+`open` only after explicitly accepting that operational tradeoff.

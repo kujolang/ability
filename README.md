@@ -22,10 +22,16 @@ policy, and exposure adapters.
 }
 ```
 
-## Contract
+## Package surfaces
 
 - `schema/ability.schema.json` is the canonical executable JSON contract.
 - `src/contract.kujo` validates definitions and invocation values.
+- `src/contracts.kujo` validates bindings, exposures, invocations, policy
+  decisions, request-bound approvals, and receipts.
+- `src/registry.kujo` resolves exact `(ability_id, version, surface)` tuples and
+  rejects definition, binding, and exposure collisions.
+- `src/runtime.kujo` provides the transport-independent execution pipeline.
+- `src/index.kujo` is the package entry point.
 - `docs/CONFORMANCE.md` records producer and adapter responsibilities.
 - Effect kinds are `read`, `write`, `delete`, and `external`.
 - Idempotency modes are `intrinsic`, `keyed`, and `none`.
@@ -40,6 +46,37 @@ version only when existing consumers remain correct. Protocol-local names have
 their own compatibility policy and must preserve canonical Ability identity in
 metadata.
 
+## Execution pipeline
+
+The experimental runtime executes the same ordered boundary for every
+transport:
+
+```text
+resolve exact definition/binding/exposure
+  -> verify definition digest
+  -> write preflight audit evidence
+  -> evaluate application-owned policy
+  -> validate and consume request-bound approval when required
+  -> validate input
+  -> begin keyed idempotency record when required
+  -> check cancellation
+  -> invoke handler
+  -> enforce declared timeout result
+  -> validate output
+  -> write completion audit evidence
+  -> commit receipt to the idempotency store
+```
+
+The runtime denies execution when no policy evaluator is supplied. Approval-
+required execution also denies when no one-time approval store is supplied.
+Keyed execution denies when no idempotency key or store is supplied. These
+fail-closed defaults keep transports from silently weakening the contract.
+
+Applications still own identity authentication, authorization rules, durable
+approval and idempotency storage, audit persistence, and concrete handlers.
+They provide those capabilities through narrow runtime service functions.
+See `docs/RUNTIME.md`.
+
 ## Validate
 
 ```bash
@@ -47,5 +84,6 @@ bash tests/run_tests.sh
 bash tests/check_consumers.sh
 ```
 
-This package intentionally does not provide a global registry, remote
-execution, authorization, approval, routing, observability, or language syntax.
+This package intentionally does not provide a process-global registry, remote
+transport server, identity provider, application authorization rules, durable
+storage, provider framework, workflow engine, or language syntax.
