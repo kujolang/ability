@@ -18,5 +18,8 @@ assert(digest_v2["digest"] == "20e1fd02416d31d0d7c5eb8565cf84b7a7fcf3428ef974487
 changed := parse_json(to_json(definition))
 changed["description"] := "A meaningfully changed operation description."
 assert(ability_definition_digest_v2(changed)["digest"] != digest_v2["digest"], "v2 digest must cover top-level semantic fields")
+decimal := parse_json(to_json(definition))
+decimal["input_schema"] := parse_json("{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"minLength\":0.5}}}")
+assert(ability_definition_digest_v2(decimal)["code"] == "unsupported_canonical_json_number", "v2 digest must reject numbers without a cross-language canonical form")
 
 print("ability contract tests: all assertions passed")

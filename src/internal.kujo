@@ -88,6 +88,22 @@ export json_digest_v2 := func(value) {
     return sha256(canonical_json_v2_impl(value))
 }
 
+func canonical_json_v2_supported_impl(value) {
+    if type(value) == "int" { return value >= -9007199254740991 && value <= 9007199254740991 }
+    if type(value) == "float" { return false }
+    if type(value) == "dict" {
+        for key in keys(value) { if canonical_json_v2_supported_impl(value[key]) == false { return false } }
+        return true
+    }
+    if type(value) == "array" {
+        for item in value { if canonical_json_v2_supported_impl(item) == false { return false } }
+        return true
+    }
+    return type(value) == "string" || type(value) == "bool" || type(value) == "null"
+}
+
+export canonical_json_v2_supported := canonical_json_v2_supported_impl
+
 export known_fields_only := func(obj, allowed, code, message) {
     if type(obj) != "dict" { return failure(code, message, {}) }
     for key in keys(obj) {

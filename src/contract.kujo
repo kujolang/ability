@@ -1,5 +1,5 @@
 export ABILITY_SCHEMA_ID := "kujo.ability/v1"
-from src.internal import dict_get_or, failure, json_digest, json_digest_v2
+from src.internal import dict_get_or, failure, json_digest, json_digest_v2, canonical_json_v2_supported
 
 func valid_segment(value) {
     segment := trim(to_string(value))
@@ -87,5 +87,6 @@ export ability_definition_digest := func(definition) {
 export ability_definition_digest_v2 := func(definition) {
     validation := validate_ability_definition(definition)
     if validation["ok"] == false { return validation }
+    if canonical_json_v2_supported(definition) == false { return failure("unsupported_canonical_json_number", "Canonical JSON v2 supports only safe integers; decimal-valued definitions require a later versioned algorithm", {}) }
     return {"ok": true, "algorithm": "sha256-canonical-json-v2", "digest": json_digest_v2(definition)}
 }

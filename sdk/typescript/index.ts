@@ -35,6 +35,7 @@ function validIdentity(value: unknown): boolean {
     && typeof value.tenant_id === "string" && value.tenant_id.length <= 256 && record(value.claims ?? {});
 }
 function stable(value: unknown): unknown {
+  if (typeof value === "number" && !Number.isSafeInteger(value)) throw new Error("canonical JSON v2 supports only safe integers");
   if (Array.isArray(value)) return value.map(stable);
   if (record(value)) return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
   return value;
@@ -64,7 +65,8 @@ export function validateAbilityDefinition(value: unknown): Validation<AbilityDef
 export function abilityDefinitionDigestV2(value: unknown): Validation<string> {
   const checked = validateAbilityDefinition(value);
   if (!checked.ok) return checked;
-  return { ok: true, value: createHash("sha256").update(canonicalJson(value)).digest("hex") };
+  try { return { ok: true, value: createHash("sha256").update(canonicalJson(value)).digest("hex") }; }
+  catch { return failure("unsupported_canonical_json_number", "Canonical JSON v2 supports only safe integers; decimal-valued definitions require a later versioned algorithm"); }
 }
 
 export function validateAbilityReceipt(value: unknown): Validation<Record<string, unknown>> {

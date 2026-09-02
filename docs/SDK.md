@@ -14,4 +14,6 @@ The gate compares TypeScript and Python validation decisions and effect review b
 
 The unversioned Kujo digest remains unchanged for v1 runtime and stored-receipt compatibility. Its historical recursive serializer is not cross-language-safe. New package-signing and offline trust tooling should use the explicitly versioned v2 digest. Migrating live invocation and receipt identity requires a separately approved compatibility release with dual-read evidence; this preview does not silently change those runtime semantics.
 
+Canonical JSON v2 accepts JSON strings, booleans, null, arrays, objects, and integers within JavaScript's safe range. It rejects decimals, negative or positive infinity, NaN, and larger integers because the preview SDKs cannot yet guarantee identical number bytes across Kujo, TypeScript, and Python. Definitions that require decimal-valued JSON Schema constraints cannot use this preview digest and must wait for a separately versioned canonicalization algorithm; values are never silently coerced.
+
 Go was evaluated but is deferred: no current gateway or client in the verified repository inventory is Go-owned, so adding a third preview SDK would increase drift and release burden without a demonstrated consumer. Reconsider when a Go gateway or two independent Go consumers are committed.

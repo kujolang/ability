@@ -22,6 +22,14 @@ def _failure(code: str, message: str, details: Dict[str, Any] | None = None) -> 
     return {"ok": False, "code": code, "message": message, "details": details or {}}
 
 def canonical_json(value: Any) -> str:
+    def validate_numbers(item: Any) -> None:
+        if isinstance(item, float) or (isinstance(item, int) and not isinstance(item, bool) and abs(item) > 9007199254740991):
+            raise ValueError("canonical JSON v2 supports only safe integers")
+        if isinstance(item, dict):
+            for nested in item.values(): validate_numbers(nested)
+        elif isinstance(item, list):
+            for nested in item: validate_numbers(nested)
+    validate_numbers(value)
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 def _valid_identity(value: Any) -> bool:
@@ -57,7 +65,8 @@ def validate_ability_definition(value: Any) -> Dict[str, Any]:
 def ability_definition_digest_v2(value: Any) -> Dict[str, Any]:
     checked = validate_ability_definition(value)
     if not checked["ok"]: return checked
-    return {"ok": True, "value": hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()}
+    try: return {"ok": True, "value": hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()}
+    except (TypeError, ValueError): return _failure("unsupported_canonical_json_number", "Canonical JSON v2 supports only safe integers; decimal-valued definitions require a later versioned algorithm")
 
 def validate_ability_receipt(value: Any) -> Dict[str, Any]:
     if not isinstance(value, dict): return _failure("invalid_ability_receipt", "Ability receipt must be an object")
