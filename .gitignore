@@ -1,4 +1,5 @@
 dist/
 build/
 kennel_packages/
+/.loop-engineering/
 .DS_Store
