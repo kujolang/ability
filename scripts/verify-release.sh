@@ -12,6 +12,7 @@ for schema_path in schema/*.json; do
   python3 -m json.tool "$schema_path" >/dev/null
 done
 python3 -m json.tool examples/content_find.json >/dev/null
+python3 -m json.tool examples/dev-manifest.json >/dev/null
 test -f .github/workflows/ci.yml
 test -f .github/workflows/release.yml
 rg -q 'actions/attest-build-provenance@[0-9a-f]{40}' .github/workflows/release.yml

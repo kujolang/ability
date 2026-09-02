@@ -1,0 +1,9 @@
+{
+  "schema": "kujo.ability.dev-manifest/v1",
+  "entries": [
+    {
+      "definition": "content_find.json",
+      "result": { "count": 0 }
+    }
+  ]
+}

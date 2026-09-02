@@ -82,6 +82,7 @@ execution.
 | JSON Schema | Provides the executable definition schema at [`schema/ability.schema.json`](schema/ability.schema.json). |
 | TypeScript/Python SDK previews | Provide cross-language definition digests, envelope and receipt validation, handler types, and effect review with a shared golden conformance gate. |
 | Offline pack trust verifier | Verifies signed pack entries, artifact checksums, publisher allowlists, revocation, compatibility, effects, and tenant visibility without granting runtime access. |
+| Fixture development kit | Validates definitions, renders reference docs, runs bounded local handlers, simulates request-bound approval and idempotency, and emits inspectable receipts. |
 
 Effect kinds are `read`, `write`, `delete`, and `external`. Idempotency modes
 are `intrinsic`, `keyed`, and `none`.
@@ -94,6 +95,8 @@ adapters.
 The local TypeScript and Python previews are documented in [`docs/SDK.md`](docs/SDK.md). They are not published packages and do not replace the canonical Kujo execution runtime.
 
 The registry schemas and offline verifier are documented in [`docs/REGISTRY.md`](docs/REGISTRY.md). They define a signing-ready trust boundary but do not operate a public or private registry service.
+
+The dependency-free fixture server and documentation generator are described in [`docs/DEVKIT.md`](docs/DEVKIT.md). They provide a local conformance seam without claiming an unowned `kujo ability` CLI or production gateway.
 
 ## Abilities included today
 
