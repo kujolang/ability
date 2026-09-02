@@ -9,10 +9,7 @@
 | Binding, exposure, invocation, policy, approval, receipt | `kujo.ability.*/v1` | Breaking shape or semantic changes require a new schema ID |
 | Individual Ability | Definition `version` | Breaking input, output, effect, or retry semantics require a major version |
 
-Canonical definition digests use deterministic JSON key ordering and SHA-256.
-Changing canonicalization or the digest algorithm is a breaking contract change.
-Consumers must resolve exact Ability versions and should pin this package to an
-exact reviewed commit.
+The unversioned v1 definition digest is frozen for live runtime and stored-receipt compatibility. Its historical recursive serializer is not safe for cross-language package identity, so this repository also exposes the additive `sha256-canonical-json-v2` algorithm for SDK and offline trust previews. New tooling must record the algorithm with the digest. Moving invocation or receipt identity from the legacy digest to v2 is a breaking operational change and requires a separately approved compatibility release with dual-read migration evidence. Consumers must resolve exact Ability versions and should pin this package to an exact reviewed commit.
 
 Additive optional fields may ship in a package minor release only when old
 consumers remain correct and validators continue to reject ambiguous meaning.

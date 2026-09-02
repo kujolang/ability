@@ -1,5 +1,5 @@
 export ABILITY_SCHEMA_ID := "kujo.ability/v1"
-from src.internal import dict_get_or, failure, json_digest
+from src.internal import dict_get_or, failure, json_digest, json_digest_v2
 
 func valid_segment(value) {
     segment := trim(to_string(value))
@@ -82,4 +82,10 @@ export ability_definition_digest := func(definition) {
     validation := validate_ability_definition(definition)
     if validation["ok"] == false { return validation }
     return {"ok": true, "algorithm": "sha256", "digest": json_digest(definition)}
+}
+
+export ability_definition_digest_v2 := func(definition) {
+    validation := validate_ability_definition(definition)
+    if validation["ok"] == false { return validation }
+    return {"ok": true, "algorithm": "sha256-canonical-json-v2", "digest": json_digest_v2(definition)}
 }

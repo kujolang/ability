@@ -55,6 +55,39 @@ export json_digest := func(value) {
     return sha256(to_json(canonicalize_json_impl(value)))
 }
 
+func canonical_json_v2_impl(value) {
+    if type(value) == "dict" {
+        serialized := "{"
+        ordered_keys := sort(keys(value))
+        index := 0
+        for key in ordered_keys {
+            if index > 0 { serialized = serialized + "," }
+            serialized = serialized + to_json(key) + ":" + canonical_json_v2_impl(value[key])
+            index = index + 1
+        }
+        return serialized + "}"
+    }
+    if type(value) == "array" {
+        serialized := "["
+        index := 0
+        for item in value {
+            if index > 0 { serialized = serialized + "," }
+            serialized = serialized + canonical_json_v2_impl(item)
+            index = index + 1
+        }
+        return serialized + "]"
+    }
+    return to_json(value)
+}
+
+# Correct, cross-language canonical JSON. The unversioned helpers remain for
+# v1 digest compatibility until consumers explicitly migrate.
+export canonical_json_v2 := canonical_json_v2_impl
+
+export json_digest_v2 := func(value) {
+    return sha256(canonical_json_v2_impl(value))
+}
+
 export known_fields_only := func(obj, allowed, code, message) {
     if type(obj) != "dict" { return failure(code, message, {}) }
     for key in keys(obj) {

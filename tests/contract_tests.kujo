@@ -1,4 +1,4 @@
-from src.contract import validate_ability_definition, validate_ability_value
+from src.contract import validate_ability_definition, validate_ability_value, ability_definition_digest_v2
 
 definition := parse_json(read_file("examples/content_find.json"))
 schema := parse_json(read_file("schema/ability.schema.json"))
@@ -11,5 +11,12 @@ assert(validate_ability_value({"query": 7}, definition["input_schema"], "input")
 invalid := parse_json(to_json(definition))
 invalid["idempotency"] := {"mode": "retry-all"}
 assert(validate_ability_definition(invalid)["code"] == "invalid_ability_idempotency_mode", "unknown idempotency mode must fail")
+
+digest_v2 := ability_definition_digest_v2(definition)
+assert(digest_v2["ok"], "v2 cross-language definition digest must be available")
+assert(digest_v2["digest"] == "20e1fd02416d31d0d7c5eb8565cf84b7a7fcf3428ef9744871f2be9e1bc95e9f", "v2 digest must match the cross-language golden fixture")
+changed := parse_json(to_json(definition))
+changed["description"] := "A meaningfully changed operation description."
+assert(ability_definition_digest_v2(changed)["digest"] != digest_v2["digest"], "v2 digest must cover top-level semantic fields")
 
 print("ability contract tests: all assertions passed")
