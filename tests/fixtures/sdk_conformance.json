@@ -1,0 +1,38 @@
+{
+  "definition": {
+    "schema": "kujo.ability/v1",
+    "id": "kujo.docs.content.find",
+    "version": "1.0.0",
+    "title": "Find documentation",
+    "description": "Find a bounded set of documentation records.",
+    "input_schema": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "output_schema": {"type": "object", "required": ["count"], "properties": {"count": {"type": "integer", "minimum": 0}}, "additionalProperties": false},
+    "effects": [{"kind": "read", "resource": "kujo.docs.content"}],
+    "idempotency": {"mode": "intrinsic"}
+  },
+  "receipt": {
+    "schema": "kujo.ability.receipt/v1",
+    "receipt_id": "receipt-1",
+    "invocation_id": "invocation-1",
+    "ability_id": "kujo.docs.content.find",
+    "ability_version": "1.0.0",
+    "definition_digest": "20e1fd02416d31d0d7c5eb8565cf84b7a7fcf3428ef9744871f2be9e1bc95e9f",
+    "handler_id": "kujo.docs.content.find.local",
+    "handler_version": "1.0.0",
+    "status": "succeeded",
+    "result": {"count": 1},
+    "error": {},
+    "policy_decision": {"outcome": "allow"},
+    "approval_id": "",
+    "idempotency": {"state": "intrinsic"},
+    "request_id": "request-1",
+    "trace_id": "trace-1",
+    "surface": "sdk",
+    "principal": {"type": "workload", "id": "fixture", "tenant_id": "local", "claims": {}},
+    "started_at_ms": 100,
+    "completed_at_ms": 103,
+    "duration_ms": 3,
+    "audit": {"preflight": true, "completion": true},
+    "metadata": {}
+  }
+}

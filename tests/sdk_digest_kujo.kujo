@@ -1,0 +1,6 @@
+from src.contract import ability_definition_digest_v2
+
+fixture := parse_json(read_file("tests/fixtures/sdk_conformance.json"))
+result := ability_definition_digest_v2(fixture["definition"])
+assert(result["ok"], "Kujo SDK digest fixture must validate")
+print(result["digest"])

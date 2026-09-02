@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added local TypeScript and Python SDK previews with shared Kujo digest and receipt conformance fixtures.
 - Rewrite the README with ecosystem badges, installation and quick-start
   guidance, included contract surfaces, the current CMS Ability catalog, and
   clear Agents SDK, MCP, Codex, and Cursor integration boundaries.

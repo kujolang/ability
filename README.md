@@ -80,6 +80,7 @@ execution.
 | Exact registry | Registers and resolves an Ability by ID, version, and exposure surface. |
 | Runtime | Runs a fail-closed policy, approval, idempotency, audit, handler, and receipt pipeline. |
 | JSON Schema | Provides the executable definition schema at [`schema/ability.schema.json`](schema/ability.schema.json). |
+| TypeScript/Python SDK previews | Provide cross-language definition digests, envelope and receipt validation, handler types, and effect review with a shared golden conformance gate. |
 
 Effect kinds are `read`, `write`, `delete`, and `external`. Idempotency modes
 are `intrinsic`, `keyed`, and `none`.
@@ -88,6 +89,8 @@ The package does not provide a network server, global registry, identity
 provider, authorization rules, durable storage, workflow engine, or provider
 framework. Applications supply those services through explicit bindings and
 adapters.
+
+The local TypeScript and Python previews are documented in [`docs/SDK.md`](docs/SDK.md). They are not published packages and do not replace the canonical Kujo execution runtime.
 
 ## Abilities included today
 
