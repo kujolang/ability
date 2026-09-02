@@ -39,3 +39,9 @@ owning repositories so this package stays independent of protocols,
 authorization systems, and execution substrates. `tests/runtime_contract_tests.kujo`
 proves the transport-independent registry, policy, approval, idempotency,
 output-validation, and receipt boundary.
+
+Host packages may add client-specific configuration, prompts, skills, roots,
+elicitation, and approval UI. These additions must not alter the Ability ID,
+version, definition digest, schemas, declared effects, idempotency mode, policy
+decision meaning, or receipt status. A host approval is additive and must not
+be treated as server authorization or as a canonical request-bound approval.

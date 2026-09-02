@@ -123,13 +123,18 @@ or execution boundary:
 | [Kujo CMS](https://github.com/kujolang/cms) | Produces core and plugin definitions, binds handlers, enforces identity and policy, stores approvals and idempotency records, and exposes REST, CLI, and MCP-ready descriptors. |
 | [Kujo Agents SDK](https://github.com/kujolang/agents-sdk) | Projects an Ability into the SDK Tool registry. It supports local handlers and server-owned gateway execution, validates input/output and receipts, preserves canonical identity and digest, and derives conservative risk hints from effects. |
 | [Kujo MCP](https://github.com/kujolang/mcp) | Projects explicitly enabled Abilities into MCP tools. It defaults to read-only effects, requires explicit opt-in for write/delete/external effects, preserves canonical metadata, and rejects tool-name collisions. |
-| Codex | Uses an Ability through an MCP server or another product adapter. This repository ships no Codex-specific plugin, skill, prompt, or permission policy. |
-| Cursor | Uses the same MCP projection. This repository ships no Cursor-specific extension, rules file, or permission policy. |
-| Other MCP hosts | Can use the MCP projection when the server, authentication, policy, and approval boundaries are configured for that host. |
+| Codex | Uses the portable Codex plugin and STDIO bridge maintained in Kujo MCP, including an Ability-aware skill and server-owned approval flow. |
+| Cursor | Uses the same STDIO bridge through a Cursor MCP configuration while preserving the canonical Ability contract. |
+| VS Code | Uses the portable bridge through an MCP server configuration with secret input support. |
+| Kujo Pi | Provides opt-in native Ability discovery and execution tools with an independent host approval before server authorization. |
+| Other MCP hosts | Use the generic STDIO configuration when the application gateway, authentication, policy, and approval boundaries are configured for that host. |
+| Kujo SSG | Publishes canonical inspect, validate, and approval-gated build definitions; execution remains in a trusted local process or authenticated application gateway. |
 
-Codex and Cursor do not receive special Ability definitions. The same
-canonical definition can be projected into either host while the MCP server
-keeps execution policy and credentials under application control.
+Codex, Cursor, VS Code, and Kujo Pi do not receive special Ability definitions.
+The same canonical definition is projected into each host while the application
+gateway keeps execution policy and credentials under its control. Host-specific
+skills, prompts, secret inputs, and approval UI are additive installation and
+experience layers, not competing operation contracts.
 
 Agents SDK and MCP consume the canonical package directly and pin it through
 Kennel. They do not maintain copied schemas. See
