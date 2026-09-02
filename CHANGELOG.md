@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Rewrite the README with ecosystem badges, installation and quick-start
+  guidance, included contract surfaces, the current CMS Ability catalog, and
+  clear Agents SDK, MCP, Codex, and Cursor integration boundaries.
+
 ## 1.0.1 - 2026-09-01
 
 - Return `approval_required` before requiring a keyed idempotency key when an

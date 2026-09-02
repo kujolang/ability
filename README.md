@@ -1,101 +1,182 @@
 # Kujo Ability
 
-Kujo Ability defines a small, portable contract for bounded semantic
-operations across the Kujo ecosystem.
+[![Version](https://img.shields.io/badge/version-1.0.1-black)](https://github.com/kujolang/ability/releases/tag/v1.0.1)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+[![built with Kujo](https://img.shields.io/badge/built%20with-Kujo-white.svg)](https://github.com/kujolang/kujo)
 
-An Ability definition says what an operation means: its stable ID and version,
-input and output JSON Schemas, declared effects, and retry semantics. It does
-not contain a handler, URL, credential, tenant, authorization rule, approval
-state, provider, or protocol name. Those belong to product-owned bindings,
-policy, and exposure adapters.
+Portable, versioned operation contracts for the Kujo ecosystem.
 
-```json
-{
-  "schema": "kujo.ability/v1",
-  "id": "kujo.docs.content.find",
-  "version": "1.0.0",
-  "description": "Find a bounded set of documentation records.",
-  "input_schema": {"type": "object"},
-  "output_schema": {"type": "object"},
-  "effects": [{"kind": "read", "resource": "kujo.docs.content"}],
-  "idempotency": {"mode": "intrinsic"}
+An Ability says what an operation means: its stable identity, input and output
+schemas, effects, and retry semantics. Products keep handlers, credentials,
+permissions, approvals, storage, and transport configuration outside the
+portable definition.
+
+## Install
+
+Kujo Ability requires Kujo 1.2.0 or newer.
+
+```bash
+kujo run /path/to/kennel/kennel.kujo \
+  --interpreter \
+  -- add github:kujolang/ability@v1.0.1 \
+  --alias ability
+kujo run /path/to/kennel/kennel.kujo --interpreter -- install
+```
+
+Import the public package surface from `ability`:
+
+```kujo
+from ability import validate_ability_definition, ability_definition_digest
+```
+
+Keep the generated Kennel lockfile in source control. Production consumers
+should resolve the package to an exact reviewed commit.
+
+## 30-second quick start
+
+```kujo
+from ability import validate_ability_definition, ability_definition_digest
+
+definition := {
+    "schema": "kujo.ability/v1",
+    "id": "kujo.docs.content.find",
+    "version": "1.0.0",
+    "description": "Find a bounded set of documentation records.",
+    "input_schema": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {"query": {"type": "string", "minLength": 1}},
+        "additionalProperties": false,
+    },
+    "output_schema": {
+        "type": "object",
+        "required": ["count"],
+        "properties": {"count": {"type": "integer", "minimum": 0}},
+        "additionalProperties": false,
+    },
+    "effects": [{"kind": "read", "resource": "kujo.docs.content"}],
+    "idempotency": {"mode": "intrinsic"},
 }
+
+validation := validate_ability_definition(definition)
+assert(validation["ok"], to_json(validation))
+
+digest := ability_definition_digest(definition)
+assert(digest["ok"], to_json(digest))
+print(digest["digest"])
 ```
 
-## Package surfaces
+See [`examples/content_find.json`](examples/content_find.json) for the complete
+example and [`docs/RUNTIME.md`](docs/RUNTIME.md) for registration and
+execution.
 
-- `schema/ability.schema.json` is the canonical executable JSON contract.
-- `src/contract.kujo` validates definitions and invocation values.
-- `src/contracts.kujo` validates bindings, exposures, invocations, policy
-  decisions, request-bound approvals, and receipts.
-- `src/registry.kujo` resolves exact `(ability_id, version, surface)` tuples and
-  rejects definition, binding, and exposure collisions.
-- `src/runtime.kujo` provides the transport-independent execution pipeline.
-- `src/index.kujo` is the package entry point.
-- `ability.kujo` is the Kennel-installed root import shim (`from ability import ...`).
-- `docs/CONFORMANCE.md` records producer and adapter responsibilities.
-- Effect kinds are `read`, `write`, `delete`, and `external`.
-- Idempotency modes are `intrinsic`, `keyed`, and `none`.
-- Definitions are transport-neutral. MCP, agent Tool, REST, CLI, and WebMCP
-  descriptors are explicit projections, not synonyms for an Ability.
+## What the package includes
 
-## Stability and compatibility
+| Surface | Purpose |
+|---|---|
+| Definition contract | Validates `kujo.ability/v1` identity, schemas, effects, and idempotency. |
+| Supporting contracts | Validates bindings, exposures, invocations, policy decisions, approvals, and receipts. |
+| Canonical digest | Produces a deterministic SHA-256 identity for an exact definition. |
+| Exact registry | Registers and resolves an Ability by ID, version, and exposure surface. |
+| Runtime | Runs a fail-closed policy, approval, idempotency, audit, handler, and receipt pipeline. |
+| JSON Schema | Provides the executable definition schema at [`schema/ability.schema.json`](schema/ability.schema.json). |
 
-The package API, definition schema, and execution receipt contract are stable
-as of package `1.0.0`. Production stability applies to the portable library
-boundary; a deployment is conformant only when its application-owned policy,
-identity, approval, idempotency, audit, timeout/preemption, and handler
-services satisfy the operational requirements in
-`docs/PRODUCTION_READINESS.md`.
+Effect kinds are `read`, `write`, `delete`, and `external`. Idempotency modes
+are `intrinsic`, `keyed`, and `none`.
 
-Breaking changes to required input, output meaning, effects, or idempotency
-require a new Ability major version. Additive optional fields may use a minor
-version only when existing consumers remain correct. Protocol-local names have
-their own compatibility policy and must preserve canonical Ability identity in
-metadata.
+The package does not provide a network server, global registry, identity
+provider, authorization rules, durable storage, workflow engine, or provider
+framework. Applications supply those services through explicit bindings and
+adapters.
 
-See `docs/COMPATIBILITY.md` for the package/version matrix and deprecation
-policy, `SECURITY.md` for vulnerability reporting, and `SUPPORT.md` for support
-scope.
+## Abilities included today
 
-## Execution pipeline
+This package does not ship a production catalog of domain operations. It ships
+the contract and runtime used to define them. The
+`kujo.docs.content.find` definition is a documentation example and test
+fixture, not a built-in service.
 
-The experimental runtime executes the same ordered boundary for every
-transport:
+Products own their domain catalog. Kujo CMS currently defines these six core
+Abilities:
 
-```text
-resolve exact definition/binding/exposure
-  -> verify definition digest
-  -> write preflight audit evidence
-  -> evaluate application-owned policy
-  -> validate input
-  -> validate request-bound approval when required
-  -> begin or replay keyed idempotency record when required
-  -> consume a new approval exactly once
-  -> check cancellation
-  -> invoke handler
-  -> enforce declared timeout result
-  -> validate output
-  -> write completion audit evidence
-  -> commit receipt to the idempotency store
+| Canonical Ability | Operation | Effect |
+|---|---|---|
+| `kujo.cms.site.inspect` | Inspect CMS identity, version, site URL, and resource counts. | Read |
+| `kujo.cms.content.list` | Search a bounded page of CMS content. | Read |
+| `kujo.cms.seo.audit` | Return SEO coverage and priority items. | Read |
+| `kujo.cms.seo.update-entry` | Update SEO metadata for one entry. | Write; approval and idempotency key required |
+| `kujo.cms.seo.bulk-update` | Update SEO metadata for up to 200 entries. | Write; approval and idempotency key required |
+| `kujo.cms.integrations.inspect` | Inspect configured AI integration surfaces without exposing secrets. | Read |
+
+CMS plugins may also declare their own Ability descriptors. CMS validates and
+namespaces each plugin definition, retains the plugin handler and permission
+policy, and requires confirmation for non-read operations. Ability itself does
+not contain a plugin marketplace or grant a plugin permission to run.
+
+## Integrations and agent hosts
+
+Ability is the shared semantic layer. Each consumer adds a specific projection
+or execution boundary:
+
+| Consumer | What is implemented |
+|---|---|
+| [Kujo CMS](https://github.com/kujolang/cms) | Produces core and plugin definitions, binds handlers, enforces identity and policy, stores approvals and idempotency records, and exposes REST, CLI, and MCP-ready descriptors. |
+| [Kujo Agents SDK](https://github.com/kujolang/agents-sdk) | Projects an Ability into the SDK Tool registry. It supports local handlers and server-owned gateway execution, validates input/output and receipts, preserves canonical identity and digest, and derives conservative risk hints from effects. |
+| [Kujo MCP](https://github.com/kujolang/mcp) | Projects explicitly enabled Abilities into MCP tools. It defaults to read-only effects, requires explicit opt-in for write/delete/external effects, preserves canonical metadata, and rejects tool-name collisions. |
+| Codex | Uses an Ability through an MCP server or another product adapter. This repository ships no Codex-specific plugin, skill, prompt, or permission policy. |
+| Cursor | Uses the same MCP projection. This repository ships no Cursor-specific extension, rules file, or permission policy. |
+| Other MCP hosts | Can use the MCP projection when the server, authentication, policy, and approval boundaries are configured for that host. |
+
+Codex and Cursor do not receive special Ability definitions. The same
+canonical definition can be projected into either host while the MCP server
+keeps execution policy and credentials under application control.
+
+Agents SDK and MCP consume the canonical package directly and pin it through
+Kennel. They do not maintain copied schemas. See
+[`docs/CONFORMANCE.md`](docs/CONFORMANCE.md) for producer and adapter
+requirements.
+
+## Execution and safety
+
+The runtime resolves an exact definition, binding, and exposure; verifies the
+definition digest; audits preflight; evaluates application policy; validates
+input and any request-bound approval; applies keyed idempotency; invokes the
+handler; validates output; audits completion; and returns a normalized receipt.
+
+Execution denies by default when required policy, approval, idempotency, or
+audit services are missing. Applications remain responsible for authenticating
+identity, enforcing authorization, persisting evidence, and hard-preempting
+handlers that can produce external effects. Read the
+[`production-readiness guide`](docs/PRODUCTION_READINESS.md) before deploying a
+new adapter.
+
+## Development
+
+Run the contract and runtime tests:
+
+```bash
+bash tests/run_tests.sh
 ```
 
-The runtime denies execution when no policy evaluator is supplied. Approval-
-required execution also denies when no one-time approval store is supplied.
-Keyed execution denies when no idempotency key or store is supplied. These
-fail-closed defaults keep transports from silently weakening the contract.
-
-Applications still own identity authentication, authorization rules, durable
-approval and idempotency storage, audit persistence, and concrete handlers.
-They provide those capabilities through narrow runtime service functions.
-See `docs/RUNTIME.md`.
-
-## Verify a release
+Run the complete release gate, including consumer conformance and Fence
+architecture checks:
 
 ```bash
 bash scripts/verify-release.sh
 ```
 
-This package intentionally does not provide a process-global registry, remote
-transport server, identity provider, application authorization rules, durable
-storage, provider framework, workflow engine, or language syntax.
+## Versioning and support
+
+The package API and `kujo.ability/v1` definition contract are stable. Breaking
+changes to an Ability's required input, output meaning, effects, or retry
+semantics require a new Ability major version.
+
+- [Changelog](CHANGELOG.md)
+- [Compatibility policy](docs/COMPATIBILITY.md)
+- [Production-readiness guide](docs/PRODUCTION_READINESS.md)
+- [Security policy](SECURITY.md)
+- [Support policy](SUPPORT.md)
+
+## License
+
+Kujo Ability is released under the [MIT License](LICENSE).
