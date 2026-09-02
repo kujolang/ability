@@ -12,6 +12,8 @@ The signed payload is canonical JSON with recursively sorted object keys and no 
 
 Private catalogs must be stored and queried inside a tenant boundary. A private entry requires exactly one `tenant_id`; a public entry is rejected if it carries tenant identity. Registry search must apply that boundary before returning metadata. Installing an allowlisted package still grants no runtime exposure or execution permission.
 
+Verification of a private entry requires an exact trusted `tenantId` context match before the artifact is read. Artifact paths are restricted to contained regular files: platform-absolute paths, drive-qualified forms, final-component symlinks, non-regular files, root escapes (including parent symlink escapes), and artifacts above the configured size limit fail closed.
+
 Deprecation warns without invalidating an already installed artifact. Revocation fails verification and should block new installs and rollouts. Advisories should identify affected pack/version ranges and remediation without exposing private catalog membership. Rollback selects a previously verified, non-revoked artifact whose compatibility window still covers the target runtime.
 
 Run the offline trust suite:
@@ -20,4 +22,4 @@ Run the offline trust suite:
 node tests/registry_trust_test.mjs
 ```
 
-The fixture generates an ephemeral Ed25519 publisher key, signs a deterministic pack entry, verifies its artifact, and rejects revocation, incompatible runtimes, unallowlisted publishers, invalid signatures, tampering, path escape, and tenant metadata on a public entry. Production publishing, key custody, transparency logs, malware scanning, moderation, and public/private registry services remain unimplemented and require separate operational ownership.
+The fixture generates an ephemeral Ed25519 publisher key, signs a deterministic pack entry, verifies its artifact, and rejects revocation, incompatible runtimes, unallowlisted publishers, invalid signatures, tampering, path and symlink escape, cross-tenant private access, oversized artifacts, and tenant metadata on a public entry. Production publishing, key custody, transparency logs, malware scanning, moderation, and public/private registry services remain unimplemented and require separate operational ownership.

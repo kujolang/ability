@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { lstat, readFile, realpath } from "node:fs/promises";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const ID = /^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*){2,}$/;
@@ -11,6 +11,7 @@ const HEX = /^[a-f0-9]{64}$/;
 const EFFECTS = new Set(["read", "write", "delete", "external"]);
 
 function stable(value) {
+  if (typeof value === "number" && !Number.isSafeInteger(value)) throw new Error("canonical JSON v2 supports only safe integers");
   if (Array.isArray(value)) return value.map(stable);
   if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
   return value;
@@ -27,7 +28,18 @@ function compareVersions(left, right) {
   return 0;
 }
 function safeArtifactPath(value) {
-  return typeof value === "string" && value.length >= 1 && value.length <= 512 && !value.startsWith("/") && !value.includes("\\") && value.split("/").every((part) => part && part !== "." && part !== "..");
+  return typeof value === "string" && value.length >= 1 && value.length <= 512 && /^[A-Za-z0-9._/-]+$/.test(value) && !isAbsolute(value) && !value.includes("\\") && !value.includes(":") && value.split("/").every((part) => part && part !== "." && part !== "..");
+}
+async function containedArtifact(root, artifactPath, maxBytes) {
+  const rootPath = await realpath(root);
+  const lexicalPath = resolve(rootPath, artifactPath);
+  const metadata = await lstat(lexicalPath);
+  if (metadata.isSymbolicLink() || !metadata.isFile()) return fail("invalid_pack_artifact_type", "Pack artifact must be a regular file and must not be a symbolic link");
+  const artifactPathReal = await realpath(lexicalPath);
+  const displacement = relative(rootPath, artifactPathReal);
+  if (!displacement || displacement === ".." || displacement.startsWith(`..${sep}`) || isAbsolute(displacement)) return fail("pack_artifact_escape", "Pack artifact must remain within the artifact root");
+  if (metadata.size > maxBytes) return fail("pack_artifact_too_large", "Pack artifact exceeds the verification size limit", { size: metadata.size, max_bytes: maxBytes });
+  return { ok: true, path: artifactPathReal };
 }
 
 export async function verifyRegistryEntry(entry, policy, options) {
@@ -43,7 +55,9 @@ export async function verifyRegistryEntry(entry, policy, options) {
   if (!Array.isArray(signed.dependencies) || signed.dependencies.some((item) => !item || !ID.test(item.pack_id || "") || !validVersionRange(item.versions))) return fail("invalid_pack_dependencies", "Pack dependencies are invalid");
   if (!validVersionRange(signed.compatibility?.kujo) || !validVersionRange(signed.compatibility?.ability)) return fail("invalid_pack_compatibility", "Pack compatibility range is invalid");
   if (!["active", "deprecated", "revoked"].includes(signed.status)) return fail("invalid_pack_status", "Pack status is invalid");
-  if (!["public", "private"].includes(signed.visibility) || (signed.visibility === "private" && !signed.tenant_id) || (signed.visibility === "public" && signed.tenant_id)) return fail("invalid_pack_visibility", "Private packs require one tenant and public packs must not carry a tenant");
+  const tenantIdValid = typeof signed.tenant_id === "string" && signed.tenant_id.length <= 256;
+  if (!["public", "private"].includes(signed.visibility) || !tenantIdValid || (signed.visibility === "private" && !signed.tenant_id) || (signed.visibility === "public" && signed.tenant_id !== "")) return fail("invalid_pack_visibility", "Private packs require one bounded tenant and public packs must not carry a tenant");
+  if (signed.visibility === "private" && (typeof options.tenantId !== "string" || !options.tenantId || options.tenantId !== signed.tenant_id)) return fail("pack_tenant_mismatch", "Private pack tenant does not match the requesting tenant");
 
   const normalizedKey = String(entry.public_key_pem || "").trim() + "\n";
   const fingerprint = sha256(normalizedKey);
@@ -56,12 +70,20 @@ export async function verifyRegistryEntry(entry, policy, options) {
   try { publicKey = createPublicKey(normalizedKey); } catch { return fail("invalid_publisher_key", "Publisher public key is invalid"); }
   let signature;
   try { signature = Buffer.from(String(entry.signature || ""), "base64"); } catch { return fail("invalid_pack_signature", "Pack signature is invalid"); }
-  if (!signature.length || !verifySignature(null, Buffer.from(canonicalJson(signed)), publicKey, signature)) return fail("invalid_pack_signature", "Pack signature verification failed");
+  let signedBytes;
+  try { signedBytes = Buffer.from(canonicalJson(signed)); }
+  catch { return fail("unsupported_canonical_json_number", "Canonical JSON v2 supports only safe integers"); }
+  if (!signature.length || !verifySignature(null, signedBytes, publicKey, signature)) return fail("invalid_pack_signature", "Pack signature verification failed");
 
-  const artifact = await readFile(resolve(options.artifactRoot, signed.artifact_path));
+  const maxArtifactBytes = Number.isSafeInteger(options.maxArtifactBytes) && options.maxArtifactBytes > 0 ? options.maxArtifactBytes : 268_435_456;
+  let artifactResult;
+  try { artifactResult = await containedArtifact(options.artifactRoot, signed.artifact_path, maxArtifactBytes); }
+  catch { return fail("invalid_pack_artifact", "Pack artifact could not be resolved safely"); }
+  if (!artifactResult.ok) return artifactResult;
+  const artifact = await readFile(artifactResult.path);
   const actual = sha256(artifact);
   if (actual !== signed.artifact_sha256) return fail("pack_checksum_mismatch", "Pack artifact checksum does not match", { expected: signed.artifact_sha256, actual });
-  return { ok: true, pack_id: signed.pack_id, pack_version: signed.pack_version, publisher_id: signed.publisher_id, artifact_sha256: actual, effects: [...signed.effects], status: signed.status, visibility: signed.visibility };
+  return { ok: true, pack_id: signed.pack_id, pack_version: signed.pack_version, publisher_id: signed.publisher_id, artifact_sha256: actual, effects: [...signed.effects], status: signed.status, visibility: signed.visibility, tenant_id: signed.visibility === "private" ? signed.tenant_id : "" };
 }
 
 async function main() {

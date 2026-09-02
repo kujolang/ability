@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalJson, verifyRegistryEntry } from "../registry/verify.mjs";
@@ -52,6 +52,31 @@ try {
   assert.equal(escaping.code, "invalid_pack_artifact_path");
   const leakedTenant = await verifyRegistryEntry({ ...entry, signed: { ...signed, tenant_id: "tenant-secret" } }, policy, options);
   assert.equal(leakedTenant.code, "invalid_pack_visibility");
+  await writeFile(join(directory, "kujo-pack.tgz"), artifact);
+  const privateSigned = { ...signed, visibility: "private", tenant_id: "tenant-a" };
+  const privateEntry = { ...entry, signed: privateSigned, signature: sign(null, Buffer.from(canonicalJson(privateSigned)), privateKey).toString("base64") };
+  assert.equal((await verifyRegistryEntry(privateEntry, policy, { ...options, tenantId: "tenant-a" })).tenant_id, "tenant-a");
+  assert.equal((await verifyRegistryEntry(privateEntry, policy, { ...options, tenantId: "tenant-b" })).code, "pack_tenant_mismatch");
+  assert.equal((await verifyRegistryEntry(privateEntry, policy, options)).code, "pack_tenant_mismatch");
+  const unboundedTenant = await verifyRegistryEntry({ ...privateEntry, signed: { ...privateSigned, tenant_id: "x".repeat(257) } }, policy, { ...options, tenantId: "x".repeat(257) });
+  assert.equal(unboundedTenant.code, "invalid_pack_visibility");
+
+  await symlink(join(directory, "kujo-pack.tgz"), join(directory, "linked.tgz"));
+  const linkedSigned = { ...signed, artifact_path: "linked.tgz", artifact_sha256: createHash("sha256").update(Buffer.from("tampered\n")).digest("hex") };
+  const linkedEntry = { ...entry, signed: linkedSigned, signature: sign(null, Buffer.from(canonicalJson(linkedSigned)), privateKey).toString("base64") };
+  assert.equal((await verifyRegistryEntry(linkedEntry, policy, options)).code, "invalid_pack_artifact_type");
+  const drivePath = await verifyRegistryEntry({ ...entry, signed: { ...signed, artifact_path: "C:/outside.tgz" } }, policy, options);
+  assert.equal(drivePath.code, "invalid_pack_artifact_path");
+  await mkdir(join(directory, "..safe"));
+  await writeFile(join(directory, "..safe", "pack.tgz"), artifact);
+  const dottedSigned = { ...signed, artifact_path: "..safe/pack.tgz" };
+  const dottedEntry = { ...entry, signed: dottedSigned, signature: sign(null, Buffer.from(canonicalJson(dottedSigned)), privateKey).toString("base64") };
+  assert.equal((await verifyRegistryEntry(dottedEntry, policy, options)).ok, true);
+  const oversized = await verifyRegistryEntry(entry, policy, { ...options, maxArtifactBytes: 1 });
+  assert.equal(oversized.code, "pack_artifact_too_large");
+  const numericSigned = { ...signed, provenance: { score: 0.5 } };
+  const numericEntry = { ...entry, signed: numericSigned, signature: Buffer.alloc(64).toString("base64") };
+  assert.equal((await verifyRegistryEntry(numericEntry, policy, options)).code, "unsupported_canonical_json_number");
 } finally {
   await rm(directory, { recursive: true, force: true });
 }
