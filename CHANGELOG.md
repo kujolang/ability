@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added local TypeScript and Python SDK previews with shared Kujo digest and receipt conformance fixtures.
+- Added signing-ready Ability Pack entry and trust-policy schemas plus an offline Ed25519, checksum, revocation, compatibility, and tenant-boundary verifier.
 - Rewrite the README with ecosystem badges, installation and quick-start
   guidance, included contract surfaces, the current CMS Ability catalog, and
   clear Agents SDK, MCP, Codex, and Cursor integration boundaries.

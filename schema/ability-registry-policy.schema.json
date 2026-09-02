@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kujolang.dev/schemas/ability/registry-policy/v1",
+  "title": "Kujo Ability Registry Trust Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "allowed_publishers", "revoked_artifacts", "revoked_packs"],
+  "properties": {
+    "schema": {"const": "kujo.ability.registry-policy/v1"},
+    "allowed_publishers": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "revoked_artifacts": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "revoked_packs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kujolang.dev/schemas/ability/pack-entry/v1",
+  "title": "Kujo Ability Pack Registry Entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "signed", "public_key_pem", "signature"],
+  "properties": {
+    "schema": {"const": "kujo.ability.pack-entry/v1"},
+    "signed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pack_id", "pack_version", "publisher_id", "artifact_path", "artifact_sha256", "digest_algorithm", "ability_ids", "effects", "dependencies", "compatibility", "status", "visibility", "tenant_id", "provenance", "published_at"],
+      "properties": {
+        "pack_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*){2,}$"},
+        "pack_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "publisher_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*){2,}$"},
+        "artifact_path": {"type": "string", "pattern": "^[a-zA-Z0-9._/-]+$", "maxLength": 512},
+        "artifact_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "digest_algorithm": {"const": "sha256-canonical-json-v2"},
+        "ability_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "effects": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["read", "write", "delete", "external"]}},
+        "dependencies": {"type": "array", "items": {"type": "object"}},
+        "compatibility": {"type": "object"},
+        "status": {"enum": ["active", "deprecated", "revoked"]},
+        "visibility": {"enum": ["public", "private"]},
+        "tenant_id": {"type": "string", "maxLength": 256},
+        "provenance": {"type": "object"},
+        "published_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "public_key_pem": {"type": "string", "minLength": 1},
+    "signature": {"type": "string", "minLength": 1}
+  }
+}

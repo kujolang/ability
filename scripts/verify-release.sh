@@ -8,7 +8,9 @@ FENCE_SCRIPT="${FENCE_SCRIPT:-$WORKSPACE_ROOT/fence/fence.kujo}"
 
 cd "$ABILITY_ROOT"
 bash -n tests/*.sh scripts/*.sh
-python3 -m json.tool schema/ability.schema.json >/dev/null
+for schema_path in schema/*.json; do
+  python3 -m json.tool "$schema_path" >/dev/null
+done
 python3 -m json.tool examples/content_find.json >/dev/null
 test -f .github/workflows/ci.yml
 test -f .github/workflows/release.yml

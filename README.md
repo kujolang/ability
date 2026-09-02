@@ -81,6 +81,7 @@ execution.
 | Runtime | Runs a fail-closed policy, approval, idempotency, audit, handler, and receipt pipeline. |
 | JSON Schema | Provides the executable definition schema at [`schema/ability.schema.json`](schema/ability.schema.json). |
 | TypeScript/Python SDK previews | Provide cross-language definition digests, envelope and receipt validation, handler types, and effect review with a shared golden conformance gate. |
+| Offline pack trust verifier | Verifies signed pack entries, artifact checksums, publisher allowlists, revocation, compatibility, effects, and tenant visibility without granting runtime access. |
 
 Effect kinds are `read`, `write`, `delete`, and `external`. Idempotency modes
 are `intrinsic`, `keyed`, and `none`.
@@ -91,6 +92,8 @@ framework. Applications supply those services through explicit bindings and
 adapters.
 
 The local TypeScript and Python previews are documented in [`docs/SDK.md`](docs/SDK.md). They are not published packages and do not replace the canonical Kujo execution runtime.
+
+The registry schemas and offline verifier are documented in [`docs/REGISTRY.md`](docs/REGISTRY.md). They define a signing-ready trust boundary but do not operate a public or private registry service.
 
 ## Abilities included today
 
