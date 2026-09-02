@@ -3,3 +3,5 @@ build/
 kennel_packages/
 /.loop-engineering/
 .DS_Store
+__pycache__/
+*.py[cod]
