@@ -1,0 +1,70 @@
+from src.contract import valid_ability_id, valid_ability_version
+from src.internal import dict_get_or, failure, known_fields_only, valid_non_empty_string
+
+export ABILITY_PROFILE_SCHEMA_ID := "kujo.ability-profile/v1"
+
+func string_array(value, max_items, max_length) {
+    if type(value) != "array" || len(value) > max_items { return false }
+    seen := {}
+    for item in value {
+        if valid_non_empty_string(item, max_length) == false || has_key(seen, item) == 1 { return false }
+        seen[item] := true
+    }
+    return true
+}
+
+export validate_ability_profile := func(profile) {
+    if type(profile) != "dict" { return failure("invalid_ability_profile", "Ability profile must be an object", {}) }
+    known := known_fields_only(profile, ["schema", "id", "version", "description", "default", "extends", "ability_ids", "metadata"], "invalid_ability_profile", "Ability profile contains an unknown field")
+    if known["ok"] == false { return known }
+    if dict_get_or(profile, "schema", "") != ABILITY_PROFILE_SCHEMA_ID { return failure("invalid_ability_profile_schema", "Ability profile schema is unsupported", {}) }
+    profile_id := dict_get_or(profile, "id", "")
+    if valid_ability_id(profile_id) == false || starts_with(profile_id, "kujo.profile.") == false { return failure("invalid_ability_profile_id", "Ability profile ID must use the kujo.profile namespace", {}) }
+    if valid_ability_version(dict_get_or(profile, "version", "")) == false { return failure("invalid_ability_profile_version", "Ability profile version must be semantic", {}) }
+    if valid_non_empty_string(dict_get_or(profile, "description", ""), 1000) == false { return failure("invalid_ability_profile_description", "Ability profile description is required", {}) }
+    if type(dict_get_or(profile, "default", false)) != "bool" { return failure("invalid_ability_profile_default", "Ability profile default must be boolean", {}) }
+    extends := dict_get_or(profile, "extends", [])
+    if string_array(extends, 32, 200) == false { return failure("invalid_ability_profile_extends", "Ability profile extends must contain unique profile IDs", {}) }
+    for parent in extends { if starts_with(parent, "kujo.profile.") == false { return failure("invalid_ability_profile_extends", "Ability profile parents must use the kujo.profile namespace", {"profile_id": parent}) } }
+    ability_ids := dict_get_or(profile, "ability_ids", [])
+    if string_array(ability_ids, 1000, 200) == false { return failure("invalid_ability_profile_abilities", "Ability profile abilities must contain unique Ability IDs", {}) }
+    for ability_id in ability_ids { if valid_ability_id(ability_id) == false { return failure("invalid_ability_profile_abilities", "Ability profile contains an invalid Ability ID", {"ability_id": ability_id}) } }
+    if type(dict_get_or(profile, "metadata", {})) != "dict" { return failure("invalid_ability_profile_metadata", "Ability profile metadata must be an object", {}) }
+    return {"ok": true, "profile": profile}
+}
+
+export resolve_ability_profile := func(profiles, profile_id) {
+    if type(profiles) != "array" { return failure("invalid_ability_profiles", "Ability profiles must be an array", {}) }
+    indexed := {}
+    for profile in profiles {
+        validation := validate_ability_profile(profile)
+        if validation["ok"] == false { return validation }
+        if has_key(indexed, profile["id"]) == 1 { return failure("ability_profile_collision", "Ability profile ID is duplicated", {"profile_id": profile["id"]}) }
+        indexed[profile["id"]] := profile
+    }
+    if has_key(indexed, profile_id) == 0 { return failure("ability_profile_not_found", "Ability profile is not registered", {"profile_id": profile_id}) }
+    included := {}
+    included[profile_id] := true
+    changed := true
+    while changed {
+        changed = false
+        for current_id in keys(included) {
+            current := indexed[current_id]
+            for parent in dict_get_or(current, "extends", []) {
+                if has_key(indexed, parent) == 0 { return failure("ability_profile_parent_not_found", "Ability profile parent is not registered", {"profile_id": parent}) }
+                if has_key(included, parent) == 0 { included[parent] := true; changed = true }
+            }
+        }
+    }
+    abilities := []
+    for profile in profiles {
+        if has_key(included, profile["id"]) == 1 {
+            for ability_id in dict_get_or(profile, "ability_ids", []) {
+                present := false
+                for existing in abilities { if existing == ability_id { present = true } }
+                if present == false { abilities = push(abilities, ability_id) }
+            }
+        }
+    }
+    return {"ok": true, "profile": indexed[profile_id], "ability_ids": abilities}
+}

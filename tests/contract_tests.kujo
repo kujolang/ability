@@ -1,4 +1,5 @@
 from src.contract import validate_ability_definition, validate_ability_value, ability_definition_digest_v2
+from src.profile import validate_ability_profile, resolve_ability_profile
 
 definition := parse_json(read_file("examples/content_find.json"))
 schema := parse_json(read_file("schema/ability.schema.json"))
@@ -21,5 +22,14 @@ assert(ability_definition_digest_v2(changed)["digest"] != digest_v2["digest"], "
 decimal := parse_json(to_json(definition))
 decimal["input_schema"] := parse_json("{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"minLength\":0.5}}}")
 assert(ability_definition_digest_v2(decimal)["code"] == "unsupported_canonical_json_number", "v2 digest must reject numbers without a cross-language canonical form")
+
+profile_base := {"schema": "kujo.ability-profile/v1", "id": "kujo.profile.essentials", "version": "1.0.0", "description": "Safe starter tools.", "default": true, "extends": [], "ability_ids": ["kujo.scout.inspect"], "metadata": {}}
+profile_review := {"schema": "kujo.ability-profile/v1", "id": "kujo.profile.review", "version": "1.0.0", "description": "Review tools.", "default": false, "extends": ["kujo.profile.essentials"], "ability_ids": ["kujo.patchbrief.summarize", "kujo.shipcheck.scan"], "metadata": {}}
+assert(validate_ability_profile(profile_base)["ok"], "valid Ability profile must pass")
+resolved_profile := resolve_ability_profile([profile_base, profile_review], "kujo.profile.review")
+assert(resolved_profile["ok"] && len(resolved_profile["ability_ids"]) == 3, "profile inheritance must resolve unique abilities")
+invalid_profile := parse_json(to_json(profile_base))
+invalid_profile["id"] := "host.command-code.default"
+assert(validate_ability_profile(invalid_profile)["code"] == "invalid_ability_profile_id", "host-specific profile namespaces must fail")
 
 print("ability contract tests: all assertions passed")

@@ -3,6 +3,7 @@ from src.contracts import ABILITY_BINDING_SCHEMA_ID, ABILITY_EXPOSURE_SCHEMA_ID,
 from src.contracts import validate_ability_binding, validate_ability_exposure, validate_ability_invocation, validate_ability_policy_decision, approval_binding_digest, validate_ability_approval, validate_ability_receipt
 from src.registry import create_ability_registry, register_ability_definition, register_ability_binding, register_ability_exposure, resolve_ability, list_ability_definitions
 from src.runtime import execute_ability
+from src.profile import ABILITY_PROFILE_SCHEMA_ID, validate_ability_profile, resolve_ability_profile
 
 export ABILITY_SCHEMA_ID := ABILITY_SCHEMA_ID
 export ABILITY_BINDING_SCHEMA_ID := ABILITY_BINDING_SCHEMA_ID
@@ -31,3 +32,6 @@ export register_ability_exposure := register_ability_exposure
 export resolve_ability := resolve_ability
 export list_ability_definitions := list_ability_definitions
 export execute_ability := execute_ability
+export ABILITY_PROFILE_SCHEMA_ID := ABILITY_PROFILE_SCHEMA_ID
+export validate_ability_profile := validate_ability_profile
+export resolve_ability_profile := resolve_ability_profile

@@ -79,6 +79,7 @@ execution.
 | Canonical digest | Produces a deterministic SHA-256 identity for an exact definition. |
 | Exact registry | Registers and resolves an Ability by ID, version, and exposure surface. |
 | Runtime | Runs a fail-closed policy, approval, idempotency, audit, handler, and receipt pipeline. |
+| Portable profiles | Defines versioned, inheritable Ability exposure sets that hosts can consume without changing what is installed. |
 | JSON Schema | Provides the executable definition schema at [`schema/ability.schema.json`](schema/ability.schema.json). |
 | TypeScript/Python SDK previews | Provide cross-language definition digests, envelope and receipt validation, handler types, and effect review with a shared golden conformance gate. |
 | Offline pack trust verifier | Verifies signed pack entries, artifact checksums, publisher allowlists, revocation, compatibility, effects, and tenant visibility without granting runtime access. |
@@ -91,6 +92,12 @@ The package does not provide a network server, global registry, identity
 provider, authorization rules, durable storage, workflow engine, or provider
 framework. Applications supply those services through explicit bindings and
 adapters.
+
+Ability profiles use `kujo.ability-profile/v1`. A profile is a portable list of
+canonical Ability IDs with optional inheritance. Profiles control discovery
+and exposure only: they never install code, grant authority, weaken policy, or
+change an Ability's declared effects. Hosts may store a user's selected profile,
+but the profile definition stays host-neutral.
 
 The local TypeScript and Python previews are documented in [`docs/SDK.md`](docs/SDK.md). They are not published packages and do not replace the canonical Kujo execution runtime.
 
