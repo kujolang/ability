@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Export the existing `ability_definition_digest_v2` through the top-level Ability facade. Cross-language conformance now imports that public facade; legacy runtime, approval and receipt identities are unchanged.
+
 ## 1.1.0 - 2026-09-04
 
 - Added local TypeScript and Python SDK previews with shared Kujo digest and receipt conformance fixtures.
