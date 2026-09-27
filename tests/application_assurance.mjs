@@ -22,7 +22,7 @@ function setup(name,seconds=1800){const dir=path.join(root,name);fs.mkdirSync(di
  sql(dir,`PRAGMA journal_mode=WAL; CREATE TABLE sessions(token TEXT PRIMARY KEY,principal TEXT NOT NULL,valid_from INTEGER NOT NULL,valid_until INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0); CREATE TABLE requests(key TEXT PRIMARY KEY,request TEXT NOT NULL,profile TEXT NOT NULL,owner TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('active','ready','completed'))); CREATE TABLE business_effects(key TEXT PRIMARY KEY,tx TEXT UNIQUE NOT NULL,profile TEXT NOT NULL,body TEXT NOT NULL); CREATE TABLE receipts(key TEXT PRIMARY KEY,raw TEXT NOT NULL,digest TEXT NOT NULL,tx TEXT NOT NULL); CREATE TABLE audit(phase TEXT NOT NULL,invocation TEXT NOT NULL); INSERT INTO sessions VALUES('${sha(token)}','${json(principal)}',${now-2},${now+seconds},0);`);
  return dir;
 }
-function run(dir,mode='execute',barrier='',credential=token){const out=processRun(runtime,['run',entry,dir,mode,barrier],{env:{...process.env,ABILITY_GATEWAY_SESSION:credential}});logs.push(out);return JSON.parse(out);}
+function run(dir,mode='execute',barrier='',credential=token){if(barrier==='receipt_failure')sql(dir,"CREATE TRIGGER receipt_failure BEFORE INSERT ON receipts BEGIN SELECT RAISE(ABORT, 'receipt persistence unavailable'); END;");const out=processRun(runtime,['run',entry,dir,mode,barrier],{env:{...process.env,ABILITY_GATEWAY_SESSION:credential}});if(barrier==='receipt_failure')sql(dir,'DROP TRIGGER receipt_failure');logs.push(out);return JSON.parse(out);}
 async function child(dir,barrier='',kill=false,hook=null){return await new Promise((resolve,reject)=>{const p=spawn(runtime,['run',entry,dir,'execute',barrier],{cwd,env:{...process.env,ABILITY_GATEWAY_SESSION:token}});let out='',err='';const timer=setTimeout(()=>{p.kill('SIGKILL');reject(new Error('gateway timeout'));},15000);p.stdout.on('data',b=>{out+=b;if(hook&&out.includes('ADMISSION_BOUNDARY')){hook();hook=null;}if(kill&&out.includes('CRASH_BOUNDARY'))p.kill('SIGKILL');});p.stderr.on('data',b=>err+=b);p.on('exit',(code,signal)=>{clearTimeout(timer);assert.equal(err,'');if(kill){assert.equal(signal,'SIGKILL',out);resolve({killed:true});}else{assert.equal(code,0);logs.push(out);resolve(JSON.parse(out.replace('ADMISSION_BOUNDARY\n','')));}});});}
 const count=dir=>Number(sql(dir,'SELECT count(*) FROM business_effects;'));
 for(const boundary of ['before_business','before_business_commit','after_business_commit','before_receipt_commit','after_receipt_commit','before_reply']){
@@ -47,6 +47,7 @@ for(const reason of ['revoked','expired']){
  assert.equal(sql(dir,'SELECT count(*) FROM receipts'),'0');
  proof.push({delayedAdmission:reason,business:0,receipt:0});
 }
+const fenced=setup('fenced-owner');const old=await child(fenced,'delay_before_business',false,()=>{assert.equal(run(fenced,'recover').ok,true);assert.equal(run(fenced).ok,true);});assert.equal(old.ok,false);assert.equal(count(fenced),1);assert.equal(run(fenced).replayed,true);proof.push({fencedOldOwner:true,business:1});
 // Receipt replay trust seam is closed by the application before returning replay.
 const wrongReceipt=setup('wrong-replay-request');assert.equal(run(wrongReceipt).ok,true);
 const saved=JSON.parse(sql(wrongReceipt,'SELECT raw FROM receipts'));
@@ -60,9 +61,10 @@ if(process.argv.includes('--dispatch')){
  const dispatch=path.resolve(process.env.DISPATCH_ROOT||'../dispatch');
  function controller(dir,mode){const out=processRun(runtime,['run','tests/ability_assurance_fixture.kujo',dir,mode],{cwd:dispatch,env:{...process.env,ABILITY_GATEWAY_SESSION:token,DISPATCH_OFFLINE_FIXTURE:'true',DISPATCH_ALLOW_ANY_OUTPUT_ROOT:'true'}});logs.push(out);return out;}
  const results=[];
- for(const scenario of ['absent','commit-failed','complete','revoked','expired','corrupt','controller-contention']){
+ for(const scenario of ['absent','commit-failed','complete','revoked','expired','corrupt','unavailable','controller-contention']){
   const dir=setup('dispatch-'+scenario,scenario==='expired'?8:1800);
-  if(scenario==='commit-failed')assert.equal(run(dir,'execute','receipt_failure').code,'ability_idempotency_commit_failed');
+  if(scenario==='absent')assert.equal(run(dir,'execute','business_failure').code,'ability_idempotency_commit_failed');
+  if(scenario==='commit-failed'||scenario==='unavailable')assert.equal(run(dir,'execute','receipt_failure').code,'ability_idempotency_commit_failed');
   else if(scenario==='complete'||scenario==='corrupt')assert.equal(run(dir).ok,true);
   const observation=run(dir,'observe'),p=observation.profile;
   assert.equal(observation.ok,true);
@@ -92,15 +94,16 @@ if(process.argv.includes('--dispatch')){
   if(scenario==='revoked')sql(dir,'UPDATE sessions SET revoked=1');
   if(scenario==='expired')await new Promise(r=>setTimeout(r,Math.max(0,doc.valid_until*1000-Date.now()+100)));
   if(scenario==='corrupt')sql(dir,'DELETE FROM business_effects');
+  if(scenario==='unavailable')fs.renameSync(path.join(dir,'application.sqlite'),path.join(dir,'unavailable.sqlite'));
   let answer;
   if(scenario==='controller-contention'){
    const contenders=await Promise.all([1,2].map(()=>new Promise((resolve,reject)=>{const c=spawn(runtime,['run','tests/ability_assurance_fixture.kujo',dir,'resume'],{cwd:dispatch,env:{...process.env,ABILITY_GATEWAY_SESSION:token,DISPATCH_OFFLINE_FIXTURE:'true',DISPATCH_ALLOW_ANY_OUTPUT_ROOT:'true'}});let out='',err='';c.stdout.on('data',b=>out+=b);c.stderr.on('data',b=>err+=b);c.on('exit',code=>{try{assert.equal(code,0,err);logs.push(out);resolve(JSON.parse(out));}catch(e){reject(e);}});})));assert.equal(contenders.filter(x=>x.ok).length,1);answer=contenders.find(x=>x.ok);results.push({controllers:2,admitted:1,rejected:1});
   }else answer=JSON.parse(controller(dir,'resume'));
-  if(['revoked','expired','corrupt'].includes(scenario)){assert.equal(answer.ok,false);assert.equal(fs.readFileSync(statePath,'utf8'),before);}
+  if(['revoked','expired','corrupt','unavailable'].includes(scenario)){assert.equal(answer.ok,false);assert.equal(fs.readFileSync(statePath,'utf8'),before);}
   else {assert.equal(answer.code,'REPLAY_COMPLETED',JSON.stringify(answer));assert.equal(count(dir),1);}
   assert.equal(fs.readFileSync(path.join(dir,'assurance.json'),'utf8').includes(canary),false);
   for(const file of fs.readdirSync(pointer.run_dir)){if(file.endsWith('.json')||file.endsWith('.jsonl'))assert.equal(fs.readFileSync(path.join(pointer.run_dir,file),'utf8').includes(canary),false);}
-  results.push({scenario,code:answer.code,business:count(dir)});
+  results.push({scenario,code:answer.code,business:scenario==='unavailable'?null:count(dir)});
  }
  for(const text of logs)assert.equal(text.includes(canary),false);
  fs.writeFileSync(path.join(root,'dispatch-proof.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({dispatchProof:results,root}));

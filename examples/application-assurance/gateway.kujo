@@ -124,7 +124,6 @@ func run_gateway(root, mode, token, selected) {
     }
     services["complete_idempotency"] := func(key, request, receipt) {
         barrier(selected, "before_receipt_commit")
-        if selected == "receipt_failure" {return {"ok": false}}
         connection := open_store(path); db_execute(connection, "BEGIN IMMEDIATE", [])
         allowed := authorize(connection, token, invocation)
         current := inspect(connection, profile)

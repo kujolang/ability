@@ -143,3 +143,13 @@ wrong Dispatch subject and exact-result bytes are denied. Denied Dispatch
 continuations preserve exact state bytes. A payload canary is present in the
 private business table and absent from assurance, verifier/controller output and
 Dispatch JSON/journal records.
+
+Review follow-up: the mandatory receipt failure is induced by a real SQLite
+BEFORE INSERT trigger that aborts receipt persistence after the business commit.
+A delayed old handler is also resumed after an explicit recovery and replacement
+execution; its stale owner fence is rejected. The unavailable-store Dispatch
+case preserves uncertainty and authoritative state instead of treating absence
+of access as absence of an effect. Final proof records six retry contenders:
+one executed, two replayed, three in_progress, one business row; two controller
+contenders admit one continuation and reject one. Counts may vary with scheduling;
+the one-effect invariant does not.
