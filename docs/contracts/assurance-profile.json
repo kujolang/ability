@@ -1,0 +1,21 @@
+{
+  "schema": "dispatch.assurance-profile-manifest/v1",
+  "advisory": true,
+  "owner": "kujolang",
+  "profile_id": "ability.application-gateway",
+  "versions": [
+    {
+      "profile_version": "1alpha1",
+      "envelope": "dispatch.effect-assurance/v1alpha1"
+    },
+    {
+      "profile_version": "1beta1",
+      "envelope": "dispatch.effect-assurance/v1beta1"
+    }
+  ],
+  "verified_predicate": "authenticated application request maps to business transaction and receipt state",
+  "vectors": "../../tests/vectors/application-assurance-commitments.json",
+  "conformance": "dispatch.effect-assurance-conformance/v1",
+  "multi_effect": false,
+  "live_verification": true
+}

@@ -1,0 +1,8 @@
+from src.internal import canonical_json, canonical_json_v2
+suite := parse_json(read_file("tests/vectors/application-assurance-commitments.json"))
+for vector in suite["vectors"] {
+    if vector["recipe"] == "ability_v1_json" {assert(canonical_json(vector["input"]) == vector["preimage_utf8"], vector["name"])}
+    if vector["recipe"] == "ability_v2_json" {assert(canonical_json_v2(vector["input"]) == vector["preimage_utf8"], vector["name"])}
+    assert(sha256(vector["preimage_utf8"]) == vector["sha256"])
+}
+print("PASS Ability historical/v2 commitment vectors")

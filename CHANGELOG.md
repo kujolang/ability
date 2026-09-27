@@ -1,5 +1,8 @@
 # Changelog
 
+Unreleased: publish the application-owned effect-assurance profile specification, version manifest and portable commitment vectors with a source-runtime regression. Alpha retained; proposed beta adoption remains opt-in. No adapter execution behavior changes.
+
+
 ## Unreleased — application effect assurance prototype
 
 - Validate application-owned Ability identity, dual business/receipt commits, live revocation and expiry through the opt-in Wave C resolver. Stable Ability and execution-result/v1 contracts remain unchanged.

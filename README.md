@@ -1,5 +1,8 @@
 # Kujo Ability
 
+Unreleased Wave C: [normative assurance profile](docs/contracts/application-assurance-profile.md) and portable commitment vectors now define the existing local predicate for alpha and proposed opt-in beta envelopes. No stable execution contract or default admission changes.
+
+
 [![Version](https://img.shields.io/badge/version-1.1.0-black)](https://github.com/kujolang/ability/releases/tag/v1.1.0)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![built with Kujo](https://img.shields.io/badge/built%20with-Kujo-white.svg)](https://github.com/kujolang/kujo)
