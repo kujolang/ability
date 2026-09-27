@@ -11,4 +11,5 @@ cd "$ABILITY_ROOT"
 KUJO_BIN="$KUJO_BIN" bash tests/sdk_cross_language.sh
 node tests/registry_trust_test.mjs
 node tests/devkit_test.mjs
+node tests/controlled_http_contract_test.mjs
 "$KUJO_BIN" check ability.kujo

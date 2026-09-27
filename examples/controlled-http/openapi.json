@@ -1,0 +1,187 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Local controlled Ability publication fixture",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:{port}",
+      "variables": {
+        "port": {
+          "default": "8080"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/v1/abilities/publication/create/run": {
+      "post": {
+        "operationId": "publication_create",
+        "description": "Creates one publication through the application-owned gateway. Host configuration selects standalone or controlled behavior. Metadata is not replay authority.",
+        "security": [
+          {
+            "localApplicationSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "Application-scoped assertion matched to host-admitted intent; header alone is not proof of enforcement.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "input",
+                  "invocation_id"
+                ],
+                "properties": {
+                  "input": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "body"
+                    ],
+                    "properties": {
+                      "body": {
+                        "type": "string",
+                        "maxLength": 1024
+                      }
+                    }
+                  },
+                  "invocation_id": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Controlled: bounded receipt reference, not verified effect truth. Standalone: authenticated Ability execution result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ControlledResponse"
+                    },
+                    {
+                      "type": "object",
+                      "description": "Existing private Ability execution response in standalone mode; see kujo.ability.receipt/v1.",
+                      "required": [
+                        "receipt"
+                      ],
+                      "properties": {
+                        "receipt": {
+                          "type": "object",
+                          "required": [
+                            "schema",
+                            "receipt_id",
+                            "invocation_id",
+                            "status"
+                          ],
+                          "properties": {
+                            "schema": {
+                              "const": "kujo.ability.receipt/v1"
+                            },
+                            "receipt_id": {
+                              "type": "string"
+                            },
+                            "invocation_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Application reports error; business completion still requires application readback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlledResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Denied, unavailable, or lost response. No status code authorizes replay."
+          }
+        },
+        "x-effect-class": "external_idempotent",
+        "x-dispatch-authority": "operator-installed admission only",
+        "x-request-max-bytes": 4096,
+        "x-response-max-bytes": 8192
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "localApplicationSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Application session authenticated by existing gateway session database, never principal JSON."
+      }
+    },
+    "schemas": {
+      "ControlledResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "outcome",
+          "receipt_ref"
+        ],
+        "properties": {
+          "outcome": {
+            "enum": [
+              "receipt_succeeded",
+              "application_error",
+              "application_unavailable"
+            ]
+          },
+          "receipt_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

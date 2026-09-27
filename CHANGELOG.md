@@ -1,3 +1,5 @@
+Unreleased: local HTTP/OpenAPI publication transport rehearsal with host-owned admission, bounded references and actual socket failure/duplicate tests. Application runtime/profile unchanged.
+
 # Changelog
 
 Unreleased: publish the application-owned effect-assurance profile specification, version manifest and portable commitment vectors with a source-runtime regression. Alpha retained; proposed beta adoption remains opt-in. No adapter execution behavior changes.

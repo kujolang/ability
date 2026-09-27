@@ -1,5 +1,7 @@
 # Kujo Ability
 
+Experimental local HTTP publication rehearsal: [contract and boundaries](docs/controlled-http.md). Dispatch remains replay authority.
+
 Unreleased Wave C: [normative assurance profile](docs/contracts/application-assurance-profile.md) and portable commitment vectors now define the existing local predicate for alpha and proposed opt-in beta envelopes. No stable execution contract or default admission changes.
 
 
