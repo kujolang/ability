@@ -324,4 +324,15 @@ audit_malformed_services := {"policy": allow_policy, "clock_ms": fixed_clock, "i
 audit_malformed := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), audit_malformed_services)
 assert(audit_malformed["code"] == "ability_audit_unavailable", "malformed audit_required values must remain fail-closed")
 
+# Stable runtime delegates request/key authenticity to the application store.
+# The experimental gateway must reject this substitution before supplying replay.
+service_owned_receipt := parse_json(to_json(approved["receipt"]))
+service_owned_idempotency := service_owned_receipt["idempotency"]
+service_owned_idempotency["request_digest"] := sha256("different-request")
+service_owned_receipt["idempotency"] := service_owned_idempotency
+service_owned := services(allow_policy)
+service_owned["begin_idempotency"] := func(key, request, invocation) {return {"state": "replay", "receipt": service_owned_receipt}}
+service_owned["complete_idempotency"] := complete_ok
+assert(execute_ability(write_registry, write_invocation, service_owned)["replayed"], "legacy service trust boundary remains explicit; gateway validates request binding")
+
 print("ability runtime contract tests: all assertions passed")

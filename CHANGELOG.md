@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — application effect assurance prototype
+
+- Validate application-owned Ability identity, dual business/receipt commits, live revocation and expiry through the opt-in Wave C resolver. Stable Ability and execution-result/v1 contracts remain unchanged.
+
 ## Unreleased
 
 - Export the existing `ability_definition_digest_v2` through the top-level Ability facade. Cross-language conformance now imports that public facade; legacy runtime, approval and receipt identities are unchanged.

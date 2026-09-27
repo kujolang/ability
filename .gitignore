@@ -5,3 +5,5 @@ kennel_packages/
 .DS_Store
 __pycache__/
 *.py[cod]
+
+/tests/tmp/

@@ -45,3 +45,21 @@ jobs:
       - name: Verify package
         shell: bash
         run: bash scripts/verify-release.sh
+
+  application-assurance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Checkout reviewed source runtime for experimental profile
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: kujolang/kujo
+          ref: 5d72aab4b99e7f8c01e4c208d6c97061934c7447
+          path: .ci/kujo
+      - name: Build source runtime and validate application gateway
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sqlite3
+          cargo build --release --locked --manifest-path .ci/kujo/Cargo.toml
+          KUJO_BIN="$GITHUB_WORKSPACE/.ci/kujo/target/release/kujo" bash scripts/verify-application-assurance.sh

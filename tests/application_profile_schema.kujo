@@ -1,0 +1,14 @@
+arguments := args()
+schema := parse_json(read_file_beneath(os_getcwd(), "schema/application-assurance-v1alpha1.schema.json", 8192))
+profile := parse_json(read_file_beneath(arguments[0], "profile.json", 8192))
+assert(json_schema_validate(profile, schema)["valid"], "generated profile must conform")
+bad := profile
+bad["payload"] := "forbidden"
+assert(json_schema_validate(bad, schema)["valid"] == false, "closed profile")
+bad = profile
+bad["transaction_sha256"] := "invalid"
+assert(json_schema_validate(bad, schema)["valid"] == false, "transaction digest")
+bad = profile
+bad["schema"] := "ability.application-assurance/v2"
+assert(json_schema_validate(bad, schema)["valid"] == false, "version")
+print("application profile schema passed")
