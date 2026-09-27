@@ -10,7 +10,7 @@ exclude = ["dist/**", "build/**", "kennel_packages/**", ".git/**"]
 
 [zones.public]
 paths = ["ability.kujo", "src/index.kujo"]
-can_depend_on = ["definition", "execution_contracts", "registry", "runtime"]
+can_depend_on = ["definition", "execution_contracts", "registry", "runtime", "profiles"]
 cannot_depend_on = []
 external_allow = []
 severity = "error"
@@ -47,5 +47,12 @@ severity = "error"
 paths = ["src/internal.kujo"]
 can_depend_on = []
 cannot_depend_on = []
+external_allow = []
+severity = "error"
+
+[zones.profiles]
+paths = ["src/profile.kujo"]
+can_depend_on = ["definition", "internal"]
+cannot_depend_on = ["public", "runtime", "registry"]
 external_allow = []
 severity = "error"
