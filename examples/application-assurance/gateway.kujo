@@ -1,0 +1,168 @@
+# Experimental application-owned gateway. Database path, session credential and
+# admitted invocation file are operator configuration, never assurance fields.
+from src.internal import json_digest, json_digest_v2, dict_get_or
+from src.contract import ability_definition_digest
+from src.registry import create_ability_registry, register_ability_definition, register_ability_binding, register_ability_exposure
+from src.runtime import execute_ability
+
+func deny(code) {return {"ok": false, "code": code}}
+func open_store(path) {
+    db := db_connect("sqlite", path)
+    db_query(db, "PRAGMA busy_timeout=5000", [])
+    db_query(db, "PRAGMA synchronous=FULL", [])
+    return db
+}
+func barrier(selected, point) {
+    if selected == point {print("CRASH_BOUNDARY"); sleep(30000)}
+    if selected == "delay_" + point {print("ADMISSION_BOUNDARY"); sleep(4000)}
+}
+func definition() {
+    return {"schema": "kujo.ability/v1", "id": "kujo.fixture.publication.create", "version": "1.0.0", "description": "Publish one application record.", "input_schema": {"type": "object", "required": ["body"], "properties": {"body": {"type": "string", "maxLength": 1024}}, "additionalProperties": false}, "output_schema": {"type": "object", "required": ["transaction"], "properties": {"transaction": {"type": "string"}}, "additionalProperties": false}, "effects": [{"kind": "write", "resource": "kujo.application.publications"}], "idempotency": {"mode": "keyed"}}
+}
+func authorize(db, token, invocation) {
+    rows := db_query(db, "SELECT principal,valid_from,valid_until,revoked FROM sessions WHERE token=? LIMIT 1", [sha256(token)])
+    if len(rows) != 1 {return deny("ability_principal_mismatch")}
+    row := rows[0]
+    if row["revoked"] != 0 {return deny("ability_assurance_revoked")}
+    if now_utc_seconds() < row["valid_from"]||now_utc_seconds() >= row["valid_until"] {return deny("ability_assurance_expired")}
+    if json_digest_v2(invocation["principal"]) != sha256(row["principal"]) {return deny("ability_principal_mismatch")}
+    return {"ok": true, "valid_from": row["valid_from"], "valid_until": row["valid_until"]}
+}
+func identity(invocation) {
+    def := definition()
+    digest := ability_definition_digest(def)["digest"]
+    if invocation["ability_id"] != def["id"]||invocation["ability_version"] != def["version"]||invocation["definition_digest"] != digest||invocation["surface"] != "sdk" {return deny("ability_request_mismatch")}
+    principal := invocation["principal"]
+    key := json_digest({"tenant_id": principal["tenant_id"], "principal_type": principal["type"], "principal_id": principal["id"], "idempotency_key": invocation["idempotency_key"]})
+    request := json_digest({"ability_id": def["id"], "ability_version": def["version"], "definition_digest": digest, "input": invocation["input"], "principal": principal})
+    # Additional profile commitment uses v2 canonicalization; v1 runtime digests unchanged.
+    profile := {"schema": "ability.application-assurance/v1alpha1", "ability_id": def["id"], "ability_version": def["version"], "definition_digest": digest, "surface": "sdk", "principal_sha256": json_digest_v2(principal), "tenant_sha256": sha256(principal["tenant_id"]), "key_digest": key, "request_digest": request, "input_sha256": sha256(invocation["input"]["body"]), "intent_sha256": json_digest_v2({"input": invocation["input"], "principal": principal}), "target_sha256": sha256("kujo.application.publications"), "operation": "create"}
+    profile["transaction_sha256"] := json_digest_v2(profile)
+    return {"ok": true, "profile": profile}
+}
+func inspect(db, profile) {
+    key := profile["key_digest"]
+    requests := db_query(db, "SELECT request,profile,owner,state FROM requests WHERE key=? LIMIT 1", [key])
+    business := db_query(db, "SELECT tx,profile,body FROM business_effects WHERE key=? LIMIT 1", [key])
+    receipts := db_query(db, "SELECT raw,digest,tx FROM receipts WHERE key=? LIMIT 1", [key])
+    if len(requests) > 0&&(requests[0]["request"] != profile["request_digest"]||requests[0]["profile"] != to_json(profile)) {return deny("ability_idempotency_conflict")}
+    state := "not_started"
+    if len(business) > 0 {
+        if len(requests) != 1||business[0]["tx"] != profile["transaction_sha256"]||business[0]["profile"] != to_json(profile)||sha256(business[0]["body"]) != profile["input_sha256"] {return deny("ability_transaction_mismatch")}
+        state = "committed"
+    }
+    receipt_digest := null
+    receipt := null
+    if len(receipts) > 0 {
+        if state != "committed"||receipts[0]["tx"] != profile["transaction_sha256"]||sha256(receipts[0]["raw"]) != receipts[0]["digest"] {return deny("ability_business_receipt_mismatch")}
+        if byte_length(receipts[0]["raw"]) > 8192 {return deny("ability_business_receipt_mismatch")}
+        receipt = parse_json(receipts[0]["raw"])
+        idem := dict_get_or(receipt, "idempotency", {})
+        if dict_get_or(idem, "key_digest", "") != key||dict_get_or(idem, "request_digest", "") != profile["request_digest"]||dict_get_or(idem, "state", "") != "completed"||receipt["result"]["transaction"] != profile["transaction_sha256"]||json_digest_v2(receipt["principal"]) != profile["principal_sha256"]||receipt["definition_digest"] != profile["definition_digest"]||receipt["ability_id"] != profile["ability_id"]||receipt["ability_version"] != profile["ability_version"]||receipt["surface"] != profile["surface"]||receipt["status"] != "succeeded" {return deny("ability_business_receipt_mismatch")}
+        receipt_digest = receipts[0]["digest"]
+    }
+    if len(requests) == 1&&((requests[0]["state"] == "completed") != (len(receipts) == 1)) {return deny("ability_business_receipt_mismatch")}
+    return {"ok": true, "state": state, "receipt_digest": receipt_digest, "receipt": receipt, "requests": requests}
+}
+func observe(db, profile, auth) {
+    checked := inspect(db, profile)
+    if checked["ok"] == false {return checked}
+    evidence := {"profile": profile, "business_state": checked["state"], "receipt_sha256": checked["receipt_digest"], "verification": "authenticated_sqlite_readback"}
+    return {"ok": true, "profile": profile, "evidence": evidence, "observation": {"observed_state": checked["state"], "mechanism": "ability_application_gateway", "valid_from": auth["valid_from"], "valid_until": auth["valid_until"], "evidence_ref": "sha256:" + json_digest_v2(evidence)}}
+}
+func run_gateway(root, mode, token, selected) {
+    if contains(["execute", "observe", "recover"], mode) == false {return deny("ability_request_mismatch")}
+    path := root + "/application.sqlite"
+    if file_exists(path) == false {return deny("ability_business_effect_unverified")}
+    invocation := parse_json(read_file_beneath(root, "invocation.json", 4096))
+    identified := identity(invocation)
+    if identified["ok"] == false {return identified}
+    profile := identified["profile"]
+    db := open_store(path)
+    # Verification is one consistent snapshot; admission uses write exclusion.
+    db_execute(db, "BEGIN IMMEDIATE", [])
+    auth := authorize(db, token, invocation)
+    if auth["ok"] == false {db_execute(db, "ROLLBACK", []); db_close(db); return auth}
+    checked := inspect(db, profile)
+    if checked["ok"] == false {db_execute(db, "ROLLBACK", []); db_close(db); return checked}
+    if mode == "observe" {
+        result := observe(db, profile, auth)
+        db_execute(db, "ROLLBACK", []); db_close(db); return result
+    }
+    if mode == "recover" {
+        # Explicit recovery fences every old handler. Never delete a business effect
+        # or forget a key. The unique business key is the independent guarantee.
+        db_execute(db, "UPDATE requests SET owner='',state='ready' WHERE key=? AND state!='completed'", [profile["key_digest"]])
+        db_execute(db, "COMMIT", []); db_close(db); return {"ok": true, "observed_state": checked["state"]}
+    }
+    db_execute(db, "ROLLBACK", []); db_close(db)
+    owner := uuid_v4()
+    services := {}
+    services["policy"] := func(def, inv, exposure) {return {"schema": "kujo.ability.policy-decision/v1", "decision_id": "application-policy", "outcome": "allow", "reason": "Authenticated local application session", "requirements": [], "policy_id": "application", "policy_version": "1.0.0"}}
+    services["id_factory"] := func(kind, inv) {return kind + "-" + substring(sha256(owner), 0, 32)}
+    services["audit"] := func(phase, inv, payload) {
+        connection := open_store(path)
+        db_execute(connection, "INSERT INTO audit(phase,invocation) VALUES(?,?)", [phase, sha256(inv["invocation_id"])])
+        db_close(connection)
+        return {"ok": true, "written": true}
+    }
+    services["begin_idempotency"] := func(key, request, inv) {
+        connection := open_store(path); db_execute(connection, "BEGIN IMMEDIATE", [])
+        allowed := authorize(connection, token, inv)
+        state := "unavailable"
+        result := {"state": state}
+        if allowed["ok"]&&key == profile["key_digest"]&&request == profile["request_digest"] {
+            existing := inspect(connection, profile)
+            if existing["ok"] == false {result = {"state": "conflict"}}
+            else if existing["receipt"] != null {result = {"state": "replay", "receipt": existing["receipt"]}}
+            else if len(existing["requests"]) == 0||existing["requests"][0]["state"] == "ready" {
+                db_execute(connection, "INSERT INTO requests(key,request,profile,owner,state) VALUES(?,?,?,?,'active') ON CONFLICT(key) DO UPDATE SET owner=excluded.owner,state='active'", [key, request, to_json(profile), owner])
+                result = {"state": "started"}
+            } else {result = {"state": "in_progress"}}
+        }
+        db_execute(connection, "COMMIT", []); db_close(connection); return result
+    }
+    services["complete_idempotency"] := func(key, request, receipt) {
+        barrier(selected, "before_receipt_commit")
+        if selected == "receipt_failure" {return {"ok": false}}
+        connection := open_store(path); db_execute(connection, "BEGIN IMMEDIATE", [])
+        allowed := authorize(connection, token, invocation)
+        current := inspect(connection, profile)
+        if allowed["ok"] == false||current["ok"] == false||current["state"] != "committed"||len(current["requests"]) != 1||current["requests"][0]["owner"] != owner||key != profile["key_digest"]||request != profile["request_digest"]||receipt["status"] != "succeeded" {
+            db_execute(connection, "ROLLBACK", []); db_close(connection); return {"ok": false}
+        }
+        raw := to_json(receipt)
+        if byte_length(raw) > 8192 {db_execute(connection, "ROLLBACK", []); db_close(connection); return {"ok": false}}
+        db_execute(connection, "INSERT INTO receipts(key,raw,digest,tx) VALUES(?,?,?,?)", [key, raw, sha256(raw), profile["transaction_sha256"]])
+        db_execute(connection, "UPDATE requests SET state='completed' WHERE key=?", [key])
+        db_execute(connection, "COMMIT", []); db_close(connection)
+        barrier(selected, "after_receipt_commit")
+        return {"ok": true}
+    }
+    handler := func(input, context) {
+        barrier(selected, "before_business")
+        if selected == "business_failure" {throw("Application execution failed before commit")}
+        connection := open_store(path); db_execute(connection, "BEGIN IMMEDIATE", [])
+        allowed := authorize(connection, token, invocation)
+        current := inspect(connection, profile)
+        if allowed["ok"] == false||current["ok"] == false||len(current["requests"]) != 1||current["requests"][0]["owner"] != owner||current["requests"][0]["state"] != "active" {db_execute(connection, "ROLLBACK", []); db_close(connection); throw("Application admission denied")}
+        db_execute(connection, "INSERT INTO business_effects(key,tx,profile,body) VALUES(?,?,?,?) ON CONFLICT(key) DO NOTHING", [profile["key_digest"], profile["transaction_sha256"], to_json(profile), input["body"]])
+        barrier(selected, "before_business_commit")
+        db_execute(connection, "COMMIT", []); db_close(connection)
+        barrier(selected, "after_business_commit")
+        return {"transaction": profile["transaction_sha256"]}
+    }
+    registry := create_ability_registry(); def := definition()
+    registry = register_ability_definition(registry, def)["registry"]
+    registry = register_ability_binding(registry, {"schema": "kujo.ability.binding/v1", "ability_id": def["id"], "ability_version": def["version"], "handler_id": "application.publication", "handler_version": "1.0.0", "handler": handler, "timeout_ms": 60000, "metadata": {}})["registry"]
+    registry = register_ability_exposure(registry, {"schema": "kujo.ability.exposure/v1", "ability_id": def["id"], "ability_version": def["version"], "surface": "sdk", "name": def["id"], "enabled": true, "public": false, "metadata": {}})["registry"]
+    result := execute_ability(registry, invocation, services)
+    barrier(selected, "before_reply")
+    return result
+}
+arguments := args()
+if arguments[0] == "definition" {print(to_json(definition())); print(ability_definition_digest(definition())["digest"])}
+else {
+    try {print(to_json(run_gateway(arguments[0], arguments[1], env("ABILITY_GATEWAY_SESSION"), arguments[2])))}
+    except error {print(to_json(deny("ability_business_effect_unverified")))}
+}

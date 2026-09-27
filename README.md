@@ -201,3 +201,16 @@ semantics require a new Ability major version.
 ## License
 
 Kujo Ability is released under the [MIT License](LICENSE).
+
+## Experimental application effect assurance
+
+The [application-owned gateway profile](docs/audits/application-assurance.md)
+validates separate SQLite business and replay-receipt commits against Dispatch's
+opt-in Wave C resolver. It is a local fixture, not a production identity provider
+or a change to stable Ability receipts. Use a reviewed source Kujo runtime:
+
+```bash
+KUJO_BIN=/path/to/source/kujo bash scripts/verify-application-assurance.sh
+# With the sibling Dispatch checkout:
+KUJO_BIN=/path/to/source/kujo bash scripts/verify-application-assurance.sh --dispatch
+```
