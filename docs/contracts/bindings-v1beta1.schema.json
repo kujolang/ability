@@ -1,0 +1,71 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operation",
+    "target_sha256",
+    "scope_sha256",
+    "key_sha256",
+    "request_sha256",
+    "precondition_sha256",
+    "transaction_sha256",
+    "reported_state",
+    "replay_class",
+    "observed_state"
+  ],
+  "properties": {
+    "operation": {
+      "const": "create"
+    },
+    "target_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
+    },
+    "scope_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
+    },
+    "key_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
+    },
+    "precondition_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
+    },
+    "transaction_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64
+    },
+    "reported_state": {
+      "enum": [
+        "not_started",
+        "started",
+        "committed",
+        "compensated",
+        "failed_before_commit",
+        "unknown"
+      ]
+    },
+    "replay_class": {
+      "const": "external_idempotent"
+    },
+    "observed_state": {
+      "enum": [
+        "not_started",
+        "committed"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

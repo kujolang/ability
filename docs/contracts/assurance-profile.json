@@ -17,5 +17,6 @@
   "vectors": "../../tests/vectors/application-assurance-commitments.json",
   "conformance": "dispatch.effect-assurance-conformance/v1",
   "multi_effect": false,
-  "live_verification": true
+  "live_verification": true,
+  "beta_binding_schema": "bindings-v1beta1.schema.json"
 }

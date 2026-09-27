@@ -3,7 +3,8 @@
 Owner kujolang/ability; ID `ability.application-gateway`. Exact `1alpha1` supports
 only dispatch.effect-assurance/v1alpha1; proposed `1beta1` supports only v1beta1.
 [Metadata](assurance-profile.json), [vectors](../../tests/vectors/application-assurance-commitments.json).
-Generic encoding and admission rules are in Dispatch's
+The closed beta [binding schema](bindings-v1beta1.schema.json) is additional to the
+generic envelope, not optional validation. Generic encoding and admission rules are in Dispatch's
 [portable commitments](https://github.com/kujolang/dispatch/blob/main/docs/contracts/portable-commitments.md)
 and [migration contract](https://github.com/kujolang/dispatch/blob/main/docs/contracts/beta-migration.md).
 This is the bounded application publication gateway profile, NOT universal Ability
@@ -29,7 +30,9 @@ permission to infer trust. This profile's portable value domain is valid Unicode
 scalar strings, booleans, null, safe integers, arrays and ASCII-key objects under
 portable-json/v1 bounds; arbitrary floating-point/Unicode-key application identities
 remain outside the proposed beta portability claim. Installed authorities MUST
-restrict admitted application identities to this documented domain.
+restrict admitted application identities to this documented domain. The configured
+beta verifier requests portable observation; the gateway rejects unsupported values
+before issuing evidence. Alpha observation remains available with historical semantics.
 
 ## Identity and exact recipes
 

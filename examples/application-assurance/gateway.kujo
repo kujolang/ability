@@ -70,11 +70,32 @@ func observe(db, profile, auth) {
     evidence := {"profile": profile, "business_state": checked["state"], "receipt_sha256": checked["receipt_digest"], "verification": "authenticated_sqlite_readback"}
     return {"ok": true, "profile": profile, "evidence": evidence, "observation": {"observed_state": checked["state"], "mechanism": "ability_application_gateway", "valid_from": auth["valid_from"], "valid_until": auth["valid_until"], "evidence_ref": "sha256:" + json_digest_v2(evidence)}}
 }
+# Explicit beta observation domain. Historical alpha invocation/receipt identity is
+# unchanged. This is data validation, not authentication or a new business action.
+func portable_application_value(value, depth) {
+    if depth > 8 {return false}
+    kind := type(value)
+    valid := true
+    if kind == "dict" {
+        if len(keys(value)) > 64 {return false}
+        for key in keys(value) {
+            if regex_match(key, "^[A-Za-z0-9_.:-]{1,128}$") == false||portable_application_value(value[key], depth + 1) == false {valid = false}
+        }
+    } else if kind == "array" {
+        if len(value) > 64 {return false}
+        for item in value {if portable_application_value(item, depth + 1) == false {valid = false}}
+    } else if kind == "int" {valid = value >= -9007199254740991&&value <= 9007199254740991}
+    else {valid = kind == "string"||kind == "bool"||kind == "null"}
+    return valid
+}
 func run_gateway(root, mode, token, selected) {
     if contains(["execute", "observe", "recover"], mode) == false {return deny("ability_request_mismatch")}
     path := root + "/application.sqlite"
     if file_exists(path) == false {return deny("ability_business_effect_unverified")}
     invocation := parse_json(read_file_beneath(root, "invocation.json", 4096))
+    if mode == "observe"&&selected == "portable-v1" {
+        if portable_application_value(invocation["principal"], 0) == false||portable_application_value(invocation["input"], 0) == false {return deny("ability_request_mismatch")}
+    }
     identified := identity(invocation)
     if identified["ok"] == false {return identified}
     profile := identified["profile"]
