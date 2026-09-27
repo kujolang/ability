@@ -60,3 +60,27 @@ unknown completion until live readback. Test substitutions, malicious headers/bo
 symlink/path/URL, expiry/stale/reuse, restart, standalone, privacy. Run Ability full
 release gate, Dispatch full gate including SDK/MCP and all Wave C regressions; Kujo
 docs checks. Review handoff commonality without unifying contracts.
+
+## Implemented result and review
+
+The existing Kujo application/profile is unchanged. New files under
+examples/controlled-http provide only the bounded loopback transport, real socket
+fault harness and one-operation OpenAPI description; schema/http-ability-handoff-
+v1alpha1.schema.json owns the reference shape. Dispatch's reader remains correlation
+only, composed under its existing live beta admission.
+
+Targeted real scenarios pass response loss after commit, timeout before commit and
+explicit handler failure, each with concurrent duplicate delivery, one final business
+row/receipt, fresh controller/server/client, standalone replay,21 malformed/forged HTTP
+requests per attempt and24 reference/schema/integrity rejections. Actual locked denial
+invalidates its checkpoint, and only a new checkpoint admits verified continuation.
+
+Fresh review enforces fixed route/method/operation, nullable receipt ID grammar,
+strict UTF8, duplicate/oversize headers, body/inflight/deadline bounds and disjoint
+OpenAPI response branches. Explicit handler failure also returns the established
+Ability receipt-finalization error, preserving execution_status=failed; independent
+readback, not that code, proves business absence. No runtime repair or profile rewrite.
+
+Ability full scripts/verify-release.sh passed locally, including the new HTTP contract
+check. Cross-repository full-gate evidence and final report are retained in Dispatch
+under docs/evidence/wave-d-http and docs/audits/wave-d-http.md. No hosted CI claim.

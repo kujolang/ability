@@ -106,3 +106,10 @@ Trusted local host/root is assumed. No remote trust, total-store rollback protec
 hostile-operator isolation, multi-effect, exactly-once or universal rollback is added.
 See Dispatch's HTTP audit for the cross-participant comparison; handoffs remain
 separate until their shared semantics have broader evidence.
+
+In the explicit handler-error case, existing Ability finalization also cannot commit
+a successful replay receipt. Its returned error is `ability_idempotency_commit_failed`
+with `error.details.execution_status = failed`. Preserve both facts; only independent
+application readback establishes `not_started`. The same top-level receipt error in
+another scenario can follow a committed business effect. This slice changes none of
+those application receipt semantics.
