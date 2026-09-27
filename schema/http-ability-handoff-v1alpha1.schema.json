@@ -33,37 +33,58 @@
     "ability_id": {
       "type": "string",
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "ability_version": {
       "type": "string",
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "ability_invocation_id": {
       "type": "string",
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "dispatch_run_id": {
       "type": "string",
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "dispatch_step_id": {
       "type": "string",
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "dispatch_attempt_id": {
       "type": "string",
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "dispatch_effect_id": {
       "type": "string",
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "definition_digest": {
       "type": "string",
@@ -91,7 +112,10 @@
         {
           "type": "string",
           "maxLength": 128,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+          "not": {
+            "pattern": "[\\r\\n]"
+          }
         },
         {
           "type": "null"
@@ -134,13 +158,19 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "http_request_id": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
     },
     "method": {
       "const": "POST"

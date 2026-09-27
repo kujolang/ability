@@ -8,3 +8,8 @@ assert.deepEqual(handoff.required.slice().sort(),Object.keys(handoff.properties)
 assert.equal(id('x\n'),false);assert.equal(id('x'.repeat(129)),false);assert.equal(id('opaque-call-1'),true);
 assert.equal(sha('abc'),'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');assert.equal(json({b:1,a:null}),'{"a":null,"b":1}');
 console.log('controlled HTTP OpenAPI/handoff contract checks passed');
+// ECMAScript $ permits a terminal newline; the published schema must forbid it too.
+for(const field of ['client_request_id','http_request_id','ability_invocation_id']){
+ const shape=handoff.properties[field];const accepts=x=>new RegExp(shape.pattern).test(x)&&x.length<=shape.maxLength&&!new RegExp(shape.not.pattern).test(x);
+ assert.equal(accepts('opaque-1'),true);assert.equal(accepts('opaque-1\n'),false);assert.equal(accepts('opaque-1\r'),false);
+}
