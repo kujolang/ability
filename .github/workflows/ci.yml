@@ -24,9 +24,9 @@ jobs:
 
       - name: Install pinned Kujo runtime
         id: kujo
-        uses: kujolang/kujo/.github/actions/setup-kujo@22582e7f0111a1005002579b44f5d03cd2ed1c9c
+        uses: kujolang/kujo/.github/actions/setup-kujo@fc53093f35e4236682bbbf5ab1ccc8d2b4df990c
         with:
-          version: v1.2.2
+          version: v1.6.0
 
       - name: Export Kujo runtime path
         shell: bash
@@ -51,15 +51,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Checkout reviewed source runtime for experimental profile
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install released runtime
+        id: kujo
+        uses: kujolang/kujo/.github/actions/setup-kujo@fc53093f35e4236682bbbf5ab1ccc8d2b4df990c
         with:
-          repository: kujolang/kujo
-          ref: 5d72aab4b99e7f8c01e4c208d6c97061934c7447
-          path: .ci/kujo
-      - name: Build source runtime and validate application gateway
+          version: v1.6.0
+      - name: Validate application gateway
         run: |
           sudo apt-get update
           sudo apt-get install --yes sqlite3
-          cargo build --release --locked --manifest-path .ci/kujo/Cargo.toml
-          KUJO_BIN="$GITHUB_WORKSPACE/.ci/kujo/target/release/kujo" bash scripts/verify-application-assurance.sh
+          KUJO_BIN="${{ steps.kujo.outputs.kujo-path }}" bash scripts/verify-application-assurance.sh

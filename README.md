@@ -2,10 +2,10 @@
 
 Experimental local HTTP publication rehearsal: [contract and boundaries](docs/controlled-http.md). Dispatch remains replay authority.
 
-Unreleased Wave C: [normative assurance profile](docs/contracts/application-assurance-profile.md) and portable commitment vectors now define the existing local predicate for alpha and proposed opt-in beta envelopes. No stable execution contract or default admission changes.
+Experimental Wave C beta (opt-in, bounded single-effect required/deny; alpha retained): [normative assurance profile](docs/contracts/application-assurance-profile.md) and portable commitment vectors now define the existing local predicate for alpha and opt-in beta envelopes. No stable execution contract or default admission changes.
 
 
-[![Version](https://img.shields.io/badge/version-1.1.0-black)](https://github.com/kujolang/ability/releases/tag/v1.1.0)
+[![Version](https://img.shields.io/badge/version-1.2.0-black)](https://github.com/kujolang/ability/releases/tag/v1.2.0)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![built with Kujo](https://img.shields.io/badge/built%20with-Kujo-white.svg)](https://github.com/kujolang/kujo)
 
@@ -18,12 +18,12 @@ portable definition.
 
 ## Install
 
-Kujo Ability requires Kujo 1.2.0 or newer.
+Kujo Ability requires Kujo 1.6.0 or newer.
 
 ```bash
 kujo run /path/to/kennel/kennel.kujo \
   --interpreter \
-  -- add github:kujolang/ability@v1.1.0 \
+  -- add github:kujolang/ability@v1.2.0 \
   --alias ability
 kujo run /path/to/kennel/kennel.kujo --interpreter -- install
 ```
