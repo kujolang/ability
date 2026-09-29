@@ -12,7 +12,7 @@ ABILITY_RECEIPT_SCHEMA_ID = "kujo.ability.receipt/v1"
 ABILITY_ID = re.compile(r"^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*){2,}$")
 VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 DIGEST = re.compile(r"^[a-f0-9]{64}$")
-DEFINITION_FIELDS = {"schema", "id", "version", "title", "description", "input_schema", "output_schema", "effects", "idempotency"}
+DEFINITION_FIELDS = {"schema", "id", "version", "title", "description", "input_schema", "output_schema", "effects", "idempotency", "semantics"}
 RECEIPT_FIELDS = {"schema", "receipt_id", "invocation_id", "ability_id", "ability_version", "definition_digest", "handler_id", "handler_version", "status", "result", "error", "policy_decision", "approval_id", "idempotency", "request_id", "trace_id", "surface", "principal", "started_at_ms", "completed_at_ms", "duration_ms", "audit", "metadata"}
 
 class AbilityHandler(Protocol):
@@ -58,6 +58,10 @@ def validate_ability_definition(value: Any) -> Dict[str, Any]:
         if effect.get("kind") not in {"read", "write", "delete", "external"}: return _failure("invalid_ability_effect_kind", "Effect kind must be read, write, delete, or external")
         resource = effect.get("resource")
         if not isinstance(resource, str) or len(resource) > 240 or not ABILITY_ID.fullmatch(resource): return _failure("invalid_ability_effect_resource", "Effect resource must be a lowercase dotted identifier")
+    if "semantics" in value:
+        semantics = value["semantics"]
+        if not isinstance(semantics, dict) or set(semantics) != {"open_world", "destructive", "executes_code"} or any(type(item) is not bool for item in semantics.values()): return _failure("invalid_ability_semantics", "semantics must contain exactly open_world, destructive, and executes_code booleans")
+        if (all(effect["kind"] == "read" for effect in effects) and (semantics["destructive"] or semantics["executes_code"])) or (any(effect["kind"] == "delete" for effect in effects) and not semantics["destructive"]): return _failure("inconsistent_ability_semantics", "semantics contradict declared effects")
     idempotency = value.get("idempotency")
     if not isinstance(idempotency, dict) or any(key != "mode" for key in idempotency) or idempotency.get("mode") not in {"intrinsic", "keyed", "none"}: return _failure("invalid_ability_idempotency_mode", "idempotency.mode must be intrinsic, keyed, or none")
     return {"ok": True, "value": value}

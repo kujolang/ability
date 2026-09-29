@@ -13,3 +13,8 @@ const decimal = structuredClone(fixture.definition); decimal.input_schema.proper
 const decimalDigest = abilityDefinitionDigestV2(decimal);
 if (decimalDigest.ok || decimalDigest.code !== "unsupported_canonical_json_number") throw new Error("TypeScript SDK accepted a non-canonical number");
 console.log(JSON.stringify({ digest: digest.value, effectReview: reviewEffects(definition.value), invalidCode: rejected.code, receiptStatus: fixture.receipt.status }));
+
+for (const item of JSON.parse(readFileSync("tests/fixtures/semantics_conformance.json", "utf8"))) {
+  const checked = validateAbilityDefinition(item.definition);
+  if (item.expected === "ok" ? !checked.ok : checked.ok || checked.code !== item.expected) throw new Error(item.label);
+}

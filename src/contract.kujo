@@ -36,7 +36,7 @@ func validate_schema(schema, field_name) {
 
 export validate_ability_definition := func(definition) {
     if type(definition) != "dict" { return failure("invalid_ability_definition", "Ability definition must be an object", {}) }
-    allowed := ["schema", "id", "version", "title", "description", "input_schema", "output_schema", "effects", "idempotency"]
+    allowed := ["schema", "id", "version", "title", "description", "input_schema", "output_schema", "effects", "idempotency", "semantics"]
     for key in keys(definition) {
         known := false
         for allowed_key in allowed { if key == allowed_key { known = true } }
@@ -61,6 +61,19 @@ export validate_ability_definition := func(definition) {
         kind := trim(to_string(dict_get_or(effect, "kind", "")))
         if kind != "read" && kind != "write" && kind != "delete" && kind != "external" { return failure("invalid_ability_effect_kind", "Effect kind must be read, write, delete, or external", {"kind": kind}) }
         if valid_ability_id(dict_get_or(effect, "resource", "")) == false { return failure("invalid_ability_effect_resource", "Effect resource must be a lowercase dotted identifier", {}) }
+    }
+    if has_key(definition, "semantics") {
+        semantics := definition["semantics"]
+        fields := ["open_world", "destructive", "executes_code"]
+        if type(semantics) != "dict" || len(keys(semantics)) != 3 { return failure("invalid_ability_semantics", "semantics must contain exactly open_world, destructive, and executes_code booleans", {}) }
+        for field in fields { if type(dict_get_or(semantics, field, null)) != "bool" { return failure("invalid_ability_semantics", "semantics fields must be booleans", {"field": field}) } }
+        read_only := true
+        deletes := false
+        for effect in effects {
+            if effect["kind"] != "read" { read_only = false }
+            if effect["kind"] == "delete" { deletes = true }
+        }
+        if (read_only && (semantics["destructive"] || semantics["executes_code"])) || (deletes && semantics["destructive"] == false) { return failure("inconsistent_ability_semantics", "semantics contradict declared effects", {}) }
     }
     idempotency := dict_get_or(definition, "idempotency", {})
     if type(idempotency) != "dict" { return failure("invalid_ability_idempotency", "idempotency must be an object", {}) }

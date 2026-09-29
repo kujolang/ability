@@ -219,3 +219,5 @@ KUJO_BIN=/path/to/source/kujo bash scripts/verify-application-assurance.sh
 # With the sibling Dispatch checkout:
 KUJO_BIN=/path/to/source/kujo bash scripts/verify-application-assurance.sh --dispatch
 ```
+
+See [host-neutral effect semantics](docs/effect-semantics.md) for optional facts used by host projections.

@@ -18,3 +18,8 @@ decimal["input_schema"]["properties"]["query"]["minLength"] = 0.5
 decimal_digest = ability_definition_digest_v2(decimal)
 if decimal_digest["ok"] or decimal_digest["code"] != "unsupported_canonical_json_number": raise SystemExit("Python SDK accepted a non-canonical number")
 print(json.dumps({"digest": digest["value"], "effectReview": review_effects(definition["value"]), "invalidCode": rejected["code"], "receiptStatus": fixture["receipt"]["status"]}, separators=(",", ":")))
+
+with open("tests/fixtures/semantics_conformance.json", encoding="utf-8") as stream:
+    for item in json.load(stream):
+        checked = validate_ability_definition(item["definition"])
+        assert checked["ok"] if item["expected"] == "ok" else not checked["ok"] and checked["code"] == item["expected"], item["label"]

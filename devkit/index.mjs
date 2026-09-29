@@ -62,7 +62,7 @@ function validateSchemaValue(value, schema, path = "$") {
 
 export function validateDevDefinition(value) {
   if (!isRecord(value)) return failure("invalid_ability_definition", "Ability definition must be an object");
-  const allowed = new Set(["schema", "id", "version", "title", "description", "input_schema", "output_schema", "effects", "idempotency"]);
+  const allowed = new Set(["schema", "id", "version", "title", "description", "input_schema", "output_schema", "effects", "idempotency", "semantics"]);
   for (const key of Object.keys(value)) if (!allowed.has(key)) return failure("unknown_ability_definition_field", "Ability definition contains an unsupported field", { field: key });
   if (value.schema !== "kujo.ability/v1") return failure("invalid_ability_schema", "Ability definition must use kujo.ability/v1");
   if (!/^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*){2,}$/.test(value.id || "")) return failure("invalid_ability_id", "Ability ID is invalid");
@@ -72,6 +72,11 @@ export function validateDevDefinition(value) {
   if (!isRecord(value.input_schema) || value.input_schema.type !== "object" || value.input_schema.additionalProperties !== false) return failure("invalid_ability_input_schema", "Input schema must be a closed object schema");
   if (!isRecord(value.output_schema) || value.output_schema.type !== "object" || value.output_schema.additionalProperties !== false) return failure("invalid_ability_output_schema", "Output schema must be a closed object schema");
   if (!Array.isArray(value.effects) || value.effects.length < 1 || value.effects.some((effect) => !isRecord(effect) || !EFFECTS.has(effect.kind) || typeof effect.resource !== "string" || !effect.resource)) return failure("invalid_ability_effects", "Ability effects are invalid");
+  if (Object.hasOwn(value, "semantics")) {
+    const semantics = value.semantics;
+    if (!isRecord(semantics) || Object.keys(semantics).length !== 3 || ["open_world", "destructive", "executes_code"].some((key) => typeof semantics[key] !== "boolean")) return failure("invalid_ability_semantics", "semantics must contain exactly open_world, destructive, and executes_code booleans");
+    if ((value.effects.every((effect) => effect.kind === "read") && (semantics.destructive || semantics.executes_code)) || (value.effects.some((effect) => effect.kind === "delete") && !semantics.destructive)) return failure("inconsistent_ability_semantics", "semantics contradict declared effects");
+  }
   if (!isRecord(value.idempotency) || !["intrinsic", "keyed", "none"].includes(value.idempotency.mode)) return failure("invalid_ability_idempotency", "Ability idempotency mode is invalid");
   try { return { ok: true, definition: value, definition_digest_v2: digest(value) }; }
   catch { return failure("unsupported_canonical_json_number", "Canonical JSON v2 supports only safe integers"); }

@@ -23,6 +23,16 @@ decimal := parse_json(to_json(definition))
 decimal["input_schema"] := parse_json("{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"minLength\":0.5}}}")
 assert(ability_definition_digest_v2(decimal)["code"] == "unsupported_canonical_json_number", "v2 digest must reject numbers without a cross-language canonical form")
 
+semantic_cases := parse_json(read_file("tests/fixtures/semantics_conformance.json"))
+for scenario in semantic_cases {
+    checked := validate_ability_definition(scenario["definition"])
+    if scenario["expected"] == "ok" {
+        assert(checked["ok"], scenario["label"])
+        assert(json_schema_validate(scenario["definition"], schema)["valid"], "valid semantics must satisfy JSON Schema")
+        assert(ability_definition_digest_v2(scenario["definition"])["digest"] != digest_v2["digest"], "semantic facts must be bound into definition identity")
+    } else { assert(checked["ok"] == false && checked["code"] == scenario["expected"], scenario["label"]) }
+}
+
 profile_base := {"schema": "kujo.ability-profile/v1", "id": "kujo.profile.essentials", "version": "1.0.0", "description": "Safe starter tools.", "default": true, "extends": [], "ability_ids": ["kujo.scout.inspect"], "metadata": {}}
 profile_review := {"schema": "kujo.ability-profile/v1", "id": "kujo.profile.review", "version": "1.0.0", "description": "Review tools.", "default": false, "extends": ["kujo.profile.essentials"], "ability_ids": ["kujo.patchbrief.summarize", "kujo.shipcheck.scan"], "metadata": {}}
 assert(validate_ability_profile(profile_base)["ok"], "valid Ability profile must pass")

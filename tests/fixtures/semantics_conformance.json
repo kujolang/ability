@@ -1,0 +1,707 @@
+[
+  {
+    "label": "bounded read",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false,
+        "destructive": false,
+        "executes_code": false
+      }
+    },
+    "expected": "ok"
+  },
+  {
+    "label": "internet read",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": true,
+        "destructive": false,
+        "executes_code": false
+      }
+    },
+    "expected": "ok"
+  },
+  {
+    "label": "reversible write",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "write",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false,
+        "destructive": false,
+        "executes_code": false
+      }
+    },
+    "expected": "ok"
+  },
+  {
+    "label": "execution",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "external",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false,
+        "destructive": false,
+        "executes_code": true
+      }
+    },
+    "expected": "ok"
+  },
+  {
+    "label": "delete",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false,
+        "destructive": true,
+        "executes_code": false
+      }
+    },
+    "expected": "ok"
+  },
+  {
+    "label": "null",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": null
+    },
+    "expected": "invalid_ability_semantics"
+  },
+  {
+    "label": "array",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": []
+    },
+    "expected": "invalid_ability_semantics"
+  },
+  {
+    "label": "partial",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false
+      }
+    },
+    "expected": "invalid_ability_semantics"
+  },
+  {
+    "label": "extra",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false,
+        "destructive": false,
+        "executes_code": false,
+        "authority": true
+      }
+    },
+    "expected": "invalid_ability_semantics"
+  },
+  {
+    "label": "number",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": 0,
+        "destructive": false,
+        "executes_code": false
+      }
+    },
+    "expected": "invalid_ability_semantics"
+  },
+  {
+    "label": "string",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": "false",
+        "destructive": false,
+        "executes_code": false
+      }
+    },
+    "expected": "invalid_ability_semantics"
+  },
+  {
+    "label": "read destruction",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false,
+        "destructive": true,
+        "executes_code": false
+      }
+    },
+    "expected": "inconsistent_ability_semantics"
+  },
+  {
+    "label": "read execution",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "read",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false,
+        "destructive": false,
+        "executes_code": true
+      }
+    },
+    "expected": "inconsistent_ability_semantics"
+  },
+  {
+    "label": "hidden delete",
+    "definition": {
+      "schema": "kujo.ability/v1",
+      "id": "kujo.docs.content.find",
+      "version": "1.0.0",
+      "title": "Find documentation",
+      "description": "Find a bounded set of documentation records.",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "effects": [
+        {
+          "kind": "delete",
+          "resource": "kujo.docs.content"
+        }
+      ],
+      "idempotency": {
+        "mode": "intrinsic"
+      },
+      "semantics": {
+        "open_world": false,
+        "destructive": false,
+        "executes_code": false
+      }
+    },
+    "expected": "inconsistent_ability_semantics"
+  }
+]

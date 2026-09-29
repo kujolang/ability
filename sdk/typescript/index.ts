@@ -13,6 +13,7 @@ export type AbilityDefinition = {
   input_schema: Record<string, unknown>;
   output_schema: Record<string, unknown>;
   effects: AbilityEffect[];
+  semantics?: { open_world: boolean; destructive: boolean; executes_code: boolean };
   idempotency: { mode: "intrinsic" | "keyed" | "none" };
 };
 export type Validation<T> = { ok: true; value: T } | { ok: false; code: string; message: string; details: Record<string, unknown> };
@@ -21,7 +22,7 @@ export type AbilityHandler = (input: unknown, context: Record<string, unknown>) 
 const abilityId = /^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*){2,}$/;
 const version = /^[0-9]+\.[0-9]+\.[0-9]+$/;
 const digest = /^[a-f0-9]{64}$/;
-const definitionFields = new Set(["schema", "id", "version", "title", "description", "input_schema", "output_schema", "effects", "idempotency"]);
+const definitionFields = new Set(["schema", "id", "version", "title", "description", "input_schema", "output_schema", "effects", "idempotency", "semantics"]);
 const receiptFields = new Set(["schema", "receipt_id", "invocation_id", "ability_id", "ability_version", "definition_digest", "handler_id", "handler_version", "status", "result", "error", "policy_decision", "approval_id", "idempotency", "request_id", "trace_id", "surface", "principal", "started_at_ms", "completed_at_ms", "duration_ms", "audit", "metadata"]);
 
 function failure<T>(code: string, message: string, details: Record<string, unknown> = {}): Validation<T> {
@@ -57,6 +58,11 @@ export function validateAbilityDefinition(value: unknown): Validation<AbilityDef
     if (!record(effect) || Object.keys(effect).some((key) => key !== "kind" && key !== "resource")) return failure("invalid_ability_effect", "Each effect must contain only kind and resource");
     if (!["read", "write", "delete", "external"].includes(String(effect.kind))) return failure("invalid_ability_effect_kind", "Effect kind must be read, write, delete, or external");
     if (typeof effect.resource !== "string" || effect.resource.length > 240 || !abilityId.test(effect.resource)) return failure("invalid_ability_effect_resource", "Effect resource must be a lowercase dotted identifier");
+  }
+  if (Object.hasOwn(value, "semantics")) {
+    const semantics = value.semantics;
+    if (!record(semantics) || Object.keys(semantics).length !== 3 || ["open_world", "destructive", "executes_code"].some((key) => typeof semantics[key] !== "boolean")) return failure("invalid_ability_semantics", "semantics must contain exactly open_world, destructive, and executes_code booleans");
+    if ((value.effects.every((effect) => effect.kind === "read") && (semantics.destructive || semantics.executes_code)) || (value.effects.some((effect) => effect.kind === "delete") && !semantics.destructive)) return failure("inconsistent_ability_semantics", "semantics contradict declared effects");
   }
   if (!record(value.idempotency) || Object.keys(value.idempotency).some((key) => key !== "mode") || !["intrinsic", "keyed", "none"].includes(String(value.idempotency.mode))) return failure("invalid_ability_idempotency_mode", "idempotency.mode must be intrinsic, keyed, or none");
   return { ok: true, value: value as AbilityDefinition };
