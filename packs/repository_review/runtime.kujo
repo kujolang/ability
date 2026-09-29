@@ -1,0 +1,49 @@
+// Host-neutral pack for an operator-selected trusted local Git repository.
+// Hosts project this registry; they do not own product schemas or commands.
+from src.registry import create_ability_registry, register_ability_definition, register_ability_binding, register_ability_exposure
+from bindings.json_process import json_process_handler
+
+export func repository_review_policy(definition, invocation, exposure) {
+    outcome := "allow"
+    for effect in definition["effects"] { if effect["kind"]!="read" { outcome="deny" } }
+    return {"schema":"kujo.ability.policy-decision/v1","decision_id":invocation["invocation_id"]+"-policy","outcome":outcome,"reason":"Operator-bound trusted local repository read policy","requirements":[],"policy_id":"kujo.repository.review","policy_version":"1.0.0"}
+}
+
+// Reject repository-configured executable conversion before product inspection.
+// This is defense in depth for a trusted local checkout, not a race-free sandbox.
+func guarded_handler(handler, config, environment) {
+    return func(input, context) {
+        result := spawn_process([config["git"],"-C",config["repository"],"config","--null","--list","--includes"],{"inherit_env":false,"env":environment,"timeout_ms":5000,"max_output_bytes":65536})
+        if result.success == false || result.timed_out || result.stdout_truncated || result.stderr_truncated { return {"ok":false,"code":"repository_configuration_unavailable","message":"Repository configuration could not be safely inspected","details":{}} }
+        for entry in split(result.stdout,parse_json("\"\\u0000\"")) {
+            key := to_lower(split(entry,"\n")[0])
+            if starts_with(key,"filter.") || (starts_with(key,"diff.") && (ends_with(key,".command") || ends_with(key,".textconv"))) { return {"ok":false,"code":"repository_executable_configuration","message":"Repository executable filters require an isolated review provider","details":{}} }
+        }
+        return handler(input,context)
+    }
+}
+
+export func create_repository_review_registry(config) {
+    registry := create_ability_registry()
+    flags := ["--untrusted","--allow-fs-read","--allow-process-exec","--allow-env-read","--allow-clock"]
+    records := [
+      {"id":"kujo.patchbrief.changes.summarize","title":"Summarize current changes","description":"Explain the uncommitted changes in the operator-configured trusted local repository using PatchBrief. Heuristic guidance, not proof of correctness.","root":config["patchbrief"],"entry":"patchbrief.kujo","capabilities":["--allow-shell-exec"],"args":["summarize","--format","json"],"output":parse_json(read_file(config["patchbrief"]+"/schemas/patchbrief-summary.schema.json"))},
+      {"id":"kujo.changebucket.changes.measure","title":"Measure change footprint","description":"Measure the current working tree against HEAD in the operator-configured trusted local repository using ChangeBucket. Includes untracked files; footprint is not a correctness assessment.","root":config["changebucket"],"entry":"changebucket.kujo","capabilities":[],"args":["--repo",config["repository"],"--json"],"output":{"type":"object","required":["base","head","summary","categories","files","budget"],"additionalProperties":true}}
+    ]
+    for record in records {
+        definition := {"schema":"kujo.ability/v1","id":record["id"],"version":"1.0.0","title":record["title"],"description":record["description"],"input_schema":{"type":"object","properties":{},"additionalProperties":false},"output_schema":record["output"],"effects":[{"kind":"read","resource":"kujo.repository.git"}],"idempotency":{"mode":"intrinsic"},"semantics":{"open_world":false,"destructive":false,"executes_code":false}}
+        step := register_ability_definition(registry,definition)
+        if step["ok"]==false {return step}
+        registry=step["registry"]
+        argv := concat(concat([config["kujo"],"run",record["root"]+"/"+record["entry"]],concat(flags,record["capabilities"])),concat(["--"],record["args"]))
+        environment := {"PATH":config["path"],"HOME":config["home"],"KUJO_MODULE_PATH":record["root"],"GIT_CONFIG_NOSYSTEM":"1","GIT_CONFIG_GLOBAL":"/dev/null","GIT_TERMINAL_PROMPT":"0","GIT_CONFIG_COUNT":"2","GIT_CONFIG_KEY_0":"core.fsmonitor","GIT_CONFIG_VALUE_0":"false","GIT_CONFIG_KEY_1":"core.hooksPath","GIT_CONFIG_VALUE_1":"/dev/null"}
+        handler := json_process_handler({"argv":argv,"cwd":config["repository"],"env":environment,"timeout_ms":25000,"max_output_bytes":524288,"input_mode":"none"})
+        step=register_ability_binding(registry,{"schema":"kujo.ability.binding/v1","ability_id":definition["id"],"ability_version":definition["version"],"handler_id":definition["id"]+".cli","handler_version":"1.0.0","handler":guarded_handler(handler,config,environment),"result_mode":"kujo.result/v1","timeout_ms":30000,"metadata":{"source_revision":config["revisions"][record["entry"]]}})
+        if step["ok"]==false {return step}
+        registry=step["registry"]
+        step=register_ability_exposure(registry,{"schema":"kujo.ability.exposure/v1","ability_id":definition["id"],"ability_version":definition["version"],"surface":"sdk","name":definition["id"],"enabled":true,"public":false,"metadata":{}})
+        if step["ok"]==false {return step}
+        registry=step["registry"]
+    }
+    return {"ok":true,"registry":registry}
+}
