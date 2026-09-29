@@ -1,0 +1,11 @@
+# Optional JSON process binding
+
+`bindings.json_process.json_process_handler(configuration)` returns a handler for a canonical binding with `result_mode: "kujo.result/v1"`. This host-neutral helper supports existing command-line implementations without placing commands in a host adapter or duplicating Ability policy.
+
+The operator supplies an absolute executable in `argv`, an absolute `cwd`, explicit string-valued `env`, `timeout_ms` (1–120000), `max_output_bytes` (1–1048576), and `input_mode` (`none` or `json`). The factory snapshots this configuration. It never interpolates invocation input into argv, cwd, environment, or executable selection. `none` accepts only `{}`; `json` sends bounded JSON through stdin. The parent environment is not inherited. Successful stdout must be one JSON value; canonical runtime validates it against the definition's output schema. Nonzero exits, unavailable executables, malformed/truncated output, and timeouts produce distinct failure codes without raw stdout/stderr.
+
+Register the handler normally and execute through `execute_ability`. This helper supplies neither authorization nor policy. Effects, approvals, audit and idempotency remain mandatory application responsibilities. Do not expose configuration as a tool input. Do not put credentials in argv. Explicit environment credentials still require application redaction and controlled child code; arbitrary child output is not automatically safe.
+
+This is a trusted-local POSIX binding, not a sandbox or remote execution service. The operator reviews and pins the executable and its dependencies. Absolute paths alone do not prevent executable replacement, repository configuration attacks, hostile subprocess behavior or filesystem access. Canonical `executes_code` facts must reflect whether the bound program delegates to supplied/repository code. Timeouts cannot undo effects; no automatic retries occur. A process timeout is a failed receipt with `ability_process_timed_out`; any uncertain effect requires reconciliation before a new invocation.
+
+Use a supervised isolated provider for remote workloads, rather than treating this helper or Kujo capability flags as containment. Existing arbitrary function bindings remain supported and do not need this helper.

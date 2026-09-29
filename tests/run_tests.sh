@@ -15,3 +15,4 @@ node tests/controlled_http_contract_test.mjs
 "$KUJO_BIN" check ability.kujo
 
 node tests/semantics_devkit.mjs
+ABILITY_TEST_CWD="$PWD" ABILITY_TEST_NODE="$(command -v node)" ABILITY_PARENT_CANARY=secret-marker "$KUJO_BIN" run tests/json_process_tests.kujo --interpreter

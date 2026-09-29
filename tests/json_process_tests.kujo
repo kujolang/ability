@@ -1,0 +1,21 @@
+from bindings.json_process import json_process_handler
+node := env("ABILITY_TEST_NODE")
+config := {"argv":[node,"-e","process.stdin.pipe(process.stdout)"],"cwd":env("ABILITY_TEST_CWD"),"env":{},"timeout_ms":2000,"max_output_bytes":4096,"input_mode":"json"}
+handler := json_process_handler(config)
+input := {"text":"$(touch NEVER); `echo injected`\n--help", "approval":{"granted":true}}
+assert(handler(input,{})["result"]==input,"input remains stdin data")
+config["argv"] := [node,"-e","process.stdout.write(JSON.stringify({secret:process.env.ABILITY_PARENT_CANARY??null}))"]
+assert(json_process_handler(config)({}, {})["result"]["secret"]==null,"parent environment must not leak")
+config["argv"] := [node,"-e","console.error('secret-marker');process.exit(4)"]
+assert(json_process_handler(config)({}, {})["code"]=="ability_process_failed","exit failure must not leak stderr")
+config["argv"] := [node,"-e","console.log('not-json')"]
+assert(json_process_handler(config)({}, {})["code"]=="ability_process_invalid_json","malformed output must fail")
+config["argv"] := [node,"-e","console.log('x'.repeat(8000))"]
+assert(json_process_handler(config)({}, {})["code"]=="ability_process_output_limit","truncation must fail")
+config["argv"] := [node,"-e","setTimeout(()=>{},3000)"]
+config["timeout_ms"] := 30
+assert(json_process_handler(config)({}, {})["code"]=="ability_process_timed_out","timeout must fail")
+config["input_mode"] := "none"
+assert(json_process_handler(config)({"unexpected":true}, {})["code"]=="ability_process_input_unsupported","unused inputs cannot be silently ignored")
+assert(handler(input,{})["result"]==input,"factory captures immutable config snapshot")
+print("JSON process binding: 8 assertions passed")
