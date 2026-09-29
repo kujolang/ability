@@ -1,17 +1,12 @@
-Unreleased: local HTTP/OpenAPI publication transport rehearsal with host-owned admission, bounded references and actual socket failure/duplicate tests. Application runtime/profile unchanged.
-
 # Changelog
 
-Unreleased: publish the application-owned effect-assurance profile specification, version manifest and portable commitment vectors with a source-runtime regression. Alpha retained; proposed beta adoption remains opt-in. No adapter execution behavior changes.
+## 1.2.0 - 2026-09-29
 
-
-## Unreleased — application effect assurance prototype
-
-- Validate application-owned Ability identity, dual business/receipt commits, live revocation and expiry through the opt-in Wave C resolver. Stable Ability and execution-result/v1 contracts remain unchanged.
-
-## Unreleased
-
-- Export the existing `ability_definition_digest_v2` through the top-level Ability facade. Cross-language conformance now imports that public facade; legacy runtime, approval and receipt identities are unchanged.
+- Export the existing cross-language `ability_definition_digest_v2` through the public facade. Legacy definition, approval and receipt identities remain unchanged.
+- Include the application-owned effect-assurance profile, profile manifest and portable commitment vectors. Beta remains experimental, opt-in and bounded to single-effect required/deny; alpha remains supported.
+- Add the local HTTP/OpenAPI publication rehearsal with host-owned one-use admission, bounded evidence references, real socket completion-loss and duplicate-delivery checks. Dispatch remains replay authority.
+- Reject terminal newlines in controlled HTTP identifier schemas.
+- Align package requirements and release validation with published Kujo 1.6.0. TypeScript/Python previews remain unpublished; no remote trust or general application gateway service is claimed.
 
 ## 1.1.0 - 2026-09-04
 

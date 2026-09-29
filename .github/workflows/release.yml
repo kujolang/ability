@@ -25,9 +25,9 @@ jobs:
 
       - name: Install pinned Kujo runtime
         id: kujo
-        uses: kujolang/kujo/.github/actions/setup-kujo@22582e7f0111a1005002579b44f5d03cd2ed1c9c
+        uses: kujolang/kujo/.github/actions/setup-kujo@fc53093f35e4236682bbbf5ab1ccc8d2b4df990c
         with:
-          version: v1.2.2
+          version: v1.6.0
 
       - name: Export Kujo runtime path
         shell: bash
@@ -63,6 +63,7 @@ jobs:
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
         with:
           path: .
+          upload-release-assets: false
           format: spdx-json
           output-file: dist/release/ability-${{ github.ref_name }}.sbom.spdx.json
 
@@ -85,4 +86,4 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/release/* --verify-tag --generate-notes --title "Kujo Ability ${GITHUB_REF_NAME}"
+        run: gh release create "$GITHUB_REF_NAME" dist/release/* --verify-tag --notes-file docs/RELEASE_1_2_0.md --title "Kujo Ability ${GITHUB_REF_NAME}"
