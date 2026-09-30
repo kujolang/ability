@@ -1,0 +1,104 @@
+// Trusted local application services. The operator owns the private directory.
+// Never expose issue/revoke or the database path through model/tool arguments.
+from src.contracts import validate_ability_invocation, validate_ability_approval, validate_ability_receipt, approval_binding_digest
+from src.internal import json_digest
+
+func connect(path) {
+    assert(file_exists(path),"Ability service store must be provisioned by the operator")
+    db:=db_connect("sqlite",path)
+    db_query(db,"PRAGMA busy_timeout=5000",[])
+    db_query(db,"PRAGMA synchronous=FULL",[])
+    version:=db_query(db,"PRAGMA user_version",[])
+    if version[0]["user_version"]!=1 {db_close(db);throw("Unsupported Ability local store version")}
+    return db
+}
+
+export func initialize_local_store(path) {
+    db:=db_connect("sqlite",path)
+    db_query(db,"PRAGMA busy_timeout=5000",[])
+    db_query(db,"PRAGMA journal_mode=WAL",[])
+    db_query(db,"PRAGMA synchronous=FULL",[])
+    db_execute(db,"BEGIN IMMEDIATE",[])
+    version:=db_query(db,"PRAGMA user_version",[])
+    assert(version[0]["user_version"]==0 || version[0]["user_version"]==1,"Unsupported Ability local store version")
+    db_execute(db,"CREATE TABLE IF NOT EXISTS approvals(id TEXT PRIMARY KEY, binding TEXT NOT NULL, raw TEXT NOT NULL, expires INTEGER NOT NULL, consumed INTEGER NOT NULL DEFAULT 0, revoked INTEGER NOT NULL DEFAULT 0)",[])
+    db_execute(db,"CREATE TABLE IF NOT EXISTS invocations(key TEXT PRIMARY KEY, request TEXT NOT NULL, invocation TEXT NOT NULL, state TEXT NOT NULL, receipt TEXT, digest TEXT)",[])
+    db_execute(db,"CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, phase TEXT NOT NULL, invocation TEXT NOT NULL, commitment TEXT NOT NULL)",[])
+    db_execute(db,"PRAGMA user_version=1",[])
+    db_execute(db,"COMMIT",[])
+    db_close(db)
+    return {"ok":true}
+}
+
+// Call only after the application's independent human authentication/decision.
+// Grant IDs/nonces are supplied by that trusted application, not a host claim.
+export func issue_local_approval(path, invocation, approval_id, nonce, approver, issued_at_ms, expires_at_ms) {
+    assert(validate_ability_invocation(invocation)["ok"],"Invalid approval invocation")
+    assert(type(invocation["definition_digest"])=="string" && len(invocation["definition_digest"])==64,"Resolved definition digest required")
+    assert(expires_at_ms-issued_at_ms<=900000,"Local approvals expire within fifteen minutes")
+    approval:={"schema":"kujo.ability.approval/v1","approval_id":approval_id,"binding_digest":approval_binding_digest(invocation),"approved_by":approver,"issued_at_ms":issued_at_ms,"expires_at_ms":expires_at_ms,"nonce":nonce,"evidence":{}}
+    checked:=validate_ability_approval(approval,invocation,issued_at_ms)
+    assert(checked["ok"],"Invalid approval grant")
+    db:=connect(path)
+    db_execute(db,"INSERT INTO approvals(id,binding,raw,expires) VALUES(?,?,?,?)",[approval_id,approval["binding_digest"],to_json(approval),expires_at_ms])
+    db_close(db)
+    return approval
+}
+
+export func revoke_local_approval(path, approval_id) {
+    db:=connect(path)
+    count:=db_execute(db,"UPDATE approvals SET revoked=1 WHERE id=? AND consumed=0",[approval_id])
+    db_close(db)
+    return {"ok":count==1}
+}
+
+export func local_sqlite_services(path) {
+    // Validate the pre-existing store before returning any callbacks.
+    db:=connect(path);db_close(db)
+    audit:=func(phase,invocation,payload) {
+        connection:=connect(path)
+        db_execute(connection,"INSERT INTO audit(phase,invocation,commitment) VALUES(?,?,?)",[phase,invocation["invocation_id"],json_digest({"invocation":invocation,"payload":payload})])
+        event:=db_last_insert_id(connection)
+        db_close(connection)
+        return {"ok":true,"event_id":"sqlite-"+to_string(event)}
+    }
+    consume:=func(approval,invocation) {
+        now:=current_timestamp()
+        if validate_ability_approval(approval,invocation,now)["ok"]==false {return {"ok":false}}
+        connection:=connect(path)
+        count:=db_execute(connection,"UPDATE approvals SET consumed=1 WHERE id=? AND binding=? AND raw=? AND consumed=0 AND revoked=0 AND expires>?",[approval["approval_id"],approval_binding_digest(invocation),to_json(approval),now])
+        db_close(connection)
+        return {"ok":count==1}
+    }
+    begin:=func(key,request,invocation) {
+        connection:=connect(path)
+        db_execute(connection,"BEGIN IMMEDIATE",[])
+        inserted:=db_execute(connection,"INSERT INTO invocations(key,request,invocation,state) VALUES(?,?,?,'started') ON CONFLICT(key) DO NOTHING",[key,request,invocation["invocation_id"]])
+        row:=db_query(connection,"SELECT request,state,receipt,digest FROM invocations WHERE key=?",[key])[0]
+        result:={"state":"in_progress"}
+        if row["request"]!=request {result={"state":"conflict"}}
+        else if inserted==1 {result={"state":"started"}}
+        else if row["state"]=="completed" {
+            result={"state":"invalid_receipt"}
+            if type(row["receipt"])=="string" && sha256(row["receipt"])==row["digest"] {
+                try {
+                    receipt:=parse_json(row["receipt"])
+                    if validate_ability_receipt(receipt)["ok"] {result={"state":"replay","receipt":receipt}}
+                } except e {result={"state":"invalid_receipt"}}
+            }
+        }
+        db_execute(connection,"COMMIT",[])
+        db_close(connection)
+        return result
+    }
+    complete:=func(key,request,receipt) {
+        if validate_ability_receipt(receipt)["ok"]==false {return {"ok":false}}
+        raw:=to_json(receipt)
+        if len(raw)>1048576 {return {"ok":false}}
+        connection:=connect(path)
+        count:=db_execute(connection,"UPDATE invocations SET state='completed',receipt=?,digest=? WHERE key=? AND request=? AND invocation=? AND state='started'",[raw,sha256(raw),key,request,receipt["invocation_id"]])
+        db_close(connection)
+        return {"ok":count==1}
+    }
+    return {"audit":audit,"consume_approval":consume,"begin_idempotency":begin,"complete_idempotency":complete}
+}

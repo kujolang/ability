@@ -1,0 +1,50 @@
+from services.local_sqlite import initialize_local_store, local_sqlite_services, issue_local_approval, revoke_local_approval
+from src.registry import create_ability_registry, register_ability_definition, register_ability_binding, register_ability_exposure
+from src.contract import ability_definition_digest
+from src.runtime import execute_ability
+path:=env("ABILITY_STORE_TEST_PATH")
+mode:=env("ABILITY_STORE_TEST_MODE")
+principal:={"type":"workload","id":"test","tenant_id":"local","claims":{}}
+approver:={"type":"human","id":"operator","tenant_id":"local","claims":{}}
+d:={"schema":"kujo.ability/v1","id":"kujo.test.store.write","version":"1.0.0","description":"Count a test mutation.","input_schema":{"type":"object","required":["value"],"properties":{"value":{"type":"string"}},"additionalProperties":false},"output_schema":{"type":"object","required":["value"],"properties":{"value":{"type":"string"}},"additionalProperties":false},"effects":[{"kind":"write","resource":"kujo.test.store"}],"idempotency":{"mode":"keyed"}}
+func invocation(id,key,value) {return {"schema":"kujo.ability.invocation/v1","invocation_id":id,"ability_id":d["id"],"ability_version":d["version"],"definition_digest":ability_definition_digest(d)["digest"],"input":{"value":value},"principal":principal,"surface":"sdk","request_id":id,"trace_id":id,"idempotency_key":key,"approval":{},"metadata":{}}}
+func policy(definition,invocation,exposure){return {"schema":"kujo.ability.policy-decision/v1","decision_id":"policy","outcome":"approval_required","reason":"Local explicit approval required","requirements":["human"],"policy_id":"kujo.test.policy","policy_version":"1.0.0"}}
+write_business:=func(input,context){db:=db_connect("sqlite",path);db_query(db,"PRAGMA busy_timeout=5000",[]);db_execute(db,"INSERT INTO business(value) VALUES(?)",[input["value"]]);db_close(db);return input}
+registry:=create_ability_registry()
+step:=register_ability_definition(registry,d);registry=step["registry"]
+step=register_ability_binding(registry,{"schema":"kujo.ability.binding/v1","ability_id":d["id"],"ability_version":d["version"],"handler_id":"test-write","handler_version":"1.0.0","handler":write_business,"timeout_ms":10000,"metadata":{}});registry=step["registry"]
+step=register_ability_exposure(registry,{"schema":"kujo.ability.exposure/v1","ability_id":d["id"],"ability_version":d["version"],"surface":"sdk","name":"write","enabled":true,"public":false,"metadata":{}});registry=step["registry"]
+if mode=="init" {initialize_local_store(path);db:=db_connect("sqlite",path);db_execute(db,"CREATE TABLE business(value TEXT)",[]);db_close(db);print("initialized")} else {
+ services:=local_sqlite_services(path);services["policy"]:=policy
+ inv:=invocation("persistent-invocation","persistent-key","data")
+ if mode=="grant" {
+  approval:=issue_local_approval(path,inv,"grant","nonce",approver,current_timestamp(),current_timestamp()+600000)
+  print(to_json(approval))
+ } else if mode=="invoke" {
+  inv["approval"]:=parse_json(read_stdin(8192))
+  print(to_json(execute_ability(registry,inv,services)))
+ } else if mode=="inspect" {
+  begin:=services["begin_idempotency"]
+  assert(begin("crash-key","request",inv)["state"]=="in_progress","restart cannot take over active execution")
+  print("restart blocked")
+ } else if mode=="checks" {
+  required:=execute_ability(registry,inv,services);assert(required["receipt"]["status"]=="approval_required","missing approval")
+  forged:={"schema":"kujo.ability.approval/v1","approval_id":"fake","binding_digest":"bad","approved_by":approver,"issued_at_ms":0,"expires_at_ms":9999999999999,"nonce":"n","evidence":{}}
+  inv["approval"]:=forged;assert(execute_ability(registry,inv,services)["ok"]==false,"forged approval")
+  inv=invocation("denied-invocation","denied-key","denied")
+  grant:=issue_local_approval(path,inv,"denied","n2",approver,current_timestamp(),current_timestamp()+600000)
+  assert(revoke_local_approval(path,"denied")["ok"],"revoke")
+  inv["approval"]:=grant;assert(execute_ability(registry,inv,services)["receipt"]["error"]["code"]=="ability_approval_replayed","revoked grant")
+  original:=issue_local_approval(path,inv,"exact","n3",approver,current_timestamp(),current_timestamp()+600000)
+  altered:=parse_json(to_json(original));altered["approved_by"]:={"type":"human","id":"forged","tenant_id":"local","claims":{}}
+  consume:=services["consume_approval"]
+  assert(consume(altered,inv)["ok"]==false,"altered approver is not a stored grant")
+  assert(consume(original,inv)["ok"],"stored exact approval")
+  assert(consume(original,inv)["ok"]==false,"one-time consumption")
+  begin:=services["begin_idempotency"]
+  assert(begin("crash-key","request",inv)["state"]=="started","first claim")
+  assert(begin("crash-key","request",inv)["state"]=="in_progress","crash does not permit replay")
+  assert(begin("crash-key","other",inv)["state"]=="conflict","input conflict")
+  print("local service checks passed")
+ } else {throw("Unknown test operation")}
+}

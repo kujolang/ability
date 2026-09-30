@@ -16,3 +16,5 @@ node tests/controlled_http_contract_test.mjs
 
 node tests/semantics_devkit.mjs
 ABILITY_TEST_CWD="$PWD" ABILITY_TEST_NODE="$(command -v node)" ABILITY_PARENT_CANARY=secret-marker "$KUJO_BIN" run tests/json_process_tests.kujo --interpreter
+KUJO_BIN="$KUJO_BIN" node tests/local_services.mjs
+ABILITY_TEST_RUNTIME=vm KUJO_BIN="$KUJO_BIN" node tests/local_services.mjs
