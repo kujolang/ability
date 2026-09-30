@@ -11,3 +11,11 @@ The pack disables ambient Git global/system configuration, prompts, fsmonitor an
 This is **trusted local execution only**. The executable path, checkout, Git directory and local machine must remain operator-controlled. Configuration checks are not atomic with Git execution and are not a sandbox. A hostile concurrent local actor, executable replacement, unusual Git configuration, or compromised dependencies require an isolated snapshot/provider. Do not expose this pack remotely or describe it as safe for arbitrary uploaded repositories. Credential-bearing configuration and raw child diagnostics are never returned. Source integrity and repository authorization remain application responsibilities.
 
 Run `KUJO_BIN=/absolute/kujo node tests/repository_review.mjs` from Ability with sibling PatchBrief and ChangeBucket checkouts. The integration test uses a disposable Git repository, executes both real CLIs through canonical Ability, verifies changed-file results, and rejects executable-filter configuration for both. Ordinary core tests remain independent of optional product checkouts.
+
+## Optional release signals
+
+Supply an operator-controlled `shipcheck` checkout and `revisions["shipcheck.kujo"]` to add `kujo.shipcheck.repository.scan@1.0.0`. Existing configurations still expose exactly the original two definitions. The published ShipCheck JSON schema is loaded without modification. Its fixed `scan --dir <configured repository> --format json` command receives shell capability only for its quoted Git repository detection helper. It shares the same configuration guard and local trust restrictions.
+
+A scan with `summary.gate_passed = 0` is a successful observation of failing readiness checks, not an execution error or release approval. ShipCheck does not run test suites, linters, builds, artifact verification or publishing. Its output must be combined with independently executed evidence before a release decision. No model-supplied path or command is accepted.
+
+Run the same integration test with `KUJO_REVIEW_RELEASE=1` and a sibling ShipCheck checkout to verify all three real CLIs, including a successful scan whose domain gate fails, and three executable-filter rejections.
