@@ -19,3 +19,16 @@ config["input_mode"] := "none"
 assert(json_process_handler(config)({"unexpected":true}, {})["code"]=="ability_process_input_unsupported","unused inputs cannot be silently ignored")
 assert(handler(input,{})["result"]==input,"factory captures immutable config snapshot")
 print("JSON process binding: 8 assertions passed")
+for path in ["", "relative", "./relative", "../relative", "C:relative", "\\relative"] {
+    candidate := parse_json(to_json(config))
+    candidate["argv"] := [path]
+    rejected := false
+    try { json_process_handler(candidate) } except e { rejected = true }
+    assert(rejected,"relative executable must fail during construction")
+    candidate := parse_json(to_json(config))
+    candidate["cwd"] := path
+    rejected := false
+    try { json_process_handler(candidate) } except e { rejected = true }
+    assert(rejected,"relative cwd must fail during construction")
+}
+print("JSON process path validation: 12 relative-path rejections passed")

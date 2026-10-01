@@ -1,6 +1,12 @@
 // Optional host-neutral binding factory. Configuration is operator code, never
 // invocation input. Register the returned function with result_mode kujo.result/v1.
 func failed(code) { return {"ok":false,"code":code,"message":"Bound process did not produce a complete valid result","details":{}} }
+// New runtimes provide a pure OS-native check. Older runtimes retain the
+// original POSIX-only binding contract; Windows support requires the primitive.
+func absolute_binding_path(path) {
+    if type(path)!="string" { return false }
+    try { return path_is_absolute(path) } except unavailable { return starts_with(path,"/") }
+}
 export func json_process_handler(configuration) {
     config := parse_json(to_json(configuration))
     assert(type(config) == "dict", "process binding configuration must be an object")
@@ -8,8 +14,8 @@ export func json_process_handler(configuration) {
     for key in keys(config) { assert(contains(allowed,key),"unsupported process binding field") }
     assert(type(config["argv"]) == "array" && len(config["argv"]) > 0 && len(config["argv"]) <= 128,"bounded argv required")
     for argument in config["argv"] { assert(type(argument)=="string" && len(argument)<=8192,"argv must contain bounded strings") }
-    assert(starts_with(config["argv"][0],"/"),"absolute executable required")
-    assert(type(config["cwd"])=="string" && starts_with(config["cwd"],"/"),"absolute cwd required")
+    assert(absolute_binding_path(config["argv"][0]),"absolute executable required")
+    assert(absolute_binding_path(config["cwd"]),"absolute cwd required")
     assert(type(config["env"])=="dict","explicit environment required")
     for key in keys(config["env"]) { assert(type(config["env"][key])=="string","environment values must be strings") }
     assert(type(config["timeout_ms"])=="int" && config["timeout_ms"]>0 && config["timeout_ms"]<=120000,"bounded timeout required")
