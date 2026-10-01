@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- JSON process bindings use native absolute-path validation when the runtime provides `path_is_absolute`. Released 1.6.0 retains the original POSIX fallback. Windows support requires a runtime shipping the new primitive and separate execution/receipt acceptance.
+
 ## 1.2.0 - 2026-09-29
 
 - Export the existing cross-language `ability_definition_digest_v2` through the public facade. Legacy definition, approval and receipt identities remain unchanged.
