@@ -3,5 +3,8 @@
   "version": "1.0.0-preview.1",
   "type": "module",
   "private": true,
-  "exports": "./index.ts"
+  "exports": "./index.ts",
+  "engines": {
+    "node": ">=22.23.4 <23 || >=24.22.1 <25 || >=26.12.1"
+  }
 }
