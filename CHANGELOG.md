@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 - 2026-10-21
+
+- Add optional host-neutral effect semantics with cross-language validation.
+- Add bounded JSON process bindings and a trusted local review capability pack.
+- Provide durable local approval and idempotency services for canonical execution.
+- Add an optional canonical ShipCheck release scan.
+- Require patched Node.js versions for JavaScript tooling and correct decimal digest regression coverage.
 
 - JSON process bindings use native absolute-path validation when the runtime provides `path_is_absolute`. Released 1.6.0 retains the original POSIX fallback. Windows support requires a runtime shipping the new primitive and separate execution/receipt acceptance.
 
