@@ -22,10 +22,9 @@ Kujo Ability requires Kujo 1.6.0 or newer.
 
 ```bash
 kujo run /path/to/kennel/kennel.kujo \
-  --interpreter \
   -- add github:kujolang/ability@v1.3.0 \
   --alias ability
-kujo run /path/to/kennel/kennel.kujo --interpreter -- install
+kujo run /path/to/kennel/kennel.kujo -- install
 ```
 
 Import the public package surface from `ability`:
