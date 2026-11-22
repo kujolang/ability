@@ -39,7 +39,7 @@ async function main() {
       handlers.set(definition.id, async () => structuredClone(result));
     }
     const portIndex = args.indexOf("--port");
-    const port = portIndex >= 0 ? Number(args[portIndex + 1]) : 0;
+    const port = portIndex >= 0 ? Number(args[portIndex + 1]) : 8793;
     if (!Number.isSafeInteger(port) || port < 0 || port > 65535) throw new Error("invalid port");
     const token = process.env.KUJO_ABILITY_DEV_TOKEN || randomBytes(24).toString("base64url");
     const server = createAbilityDevServer({ definitions, handlers, token });

@@ -18,7 +18,7 @@ Start the loopback-only fixture server:
 
 ```bash
 KUJO_ABILITY_DEV_TOKEN='replace-with-a-local-secret' \
-  node devkit/cli.mjs serve examples/dev-manifest.json --port 7777
+  node devkit/cli.mjs serve examples/dev-manifest.json --port 8793
 ```
 
 The server exposes authenticated `GET /health`, `GET /v1/abilities`, `POST /v1/approvals`, and `POST /v1/invocations`. A manifest supplies static fixture outputs; it cannot execute shell commands, load provider credentials, publish packages, or become a production gateway. Non-read fixtures require a request-bound, short-lived, one-time simulated approval. Keyed fixtures require an idempotency key, replay the same request, and reject reuse with different input. Request and output schemas fail closed and bodies are bounded to 1 MiB.
