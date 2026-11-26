@@ -181,7 +181,7 @@ export function createAbilityDevServer({ definitions, handlers, token, clock = (
           const requestDigest = digest({ input: body.input, ability_version: body.ability_version, principal: actor });
           const previous = idempotency.get(scope);
           if (previous && previous.requestDigest !== requestDigest) return send(response, 409, failure("ability_idempotency_conflict", "Idempotency key was reused with different input or principal"));
-          if (previous && !previous.outcome) return send(response, 409, failure("ability_idempotency_in_progress", "Fixture invocation is still running"));
+          if (previous && !previous.outcome) return send(response, 409, failure("ability_invocation_in_progress", "Fixture invocation is still running"));
           if (previous) {
             if (approvalRecord) approvalRecord.consumed = true;
             return send(response, previous.outcome.status, { ...previous.outcome.body, replayed: true });

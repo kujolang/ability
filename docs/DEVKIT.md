@@ -21,7 +21,7 @@ KUJO_ABILITY_DEV_TOKEN='replace-with-a-local-secret' \
   node devkit/cli.mjs serve examples/dev-manifest.json --port 8793
 ```
 
-The server exposes authenticated `GET /health`, `GET /v1/abilities`, `POST /v1/approvals`, and `POST /v1/invocations`. A manifest supplies static fixture outputs; it cannot execute shell commands, load provider credentials, publish packages, or become a production gateway. Non-read fixtures require a request-bound, short-lived, one-time simulated approval. Keyed fixtures require an idempotency key, replay the same request, and reject reuse with different input. Request and output schemas fail closed and bodies are bounded to 1 MiB.
+The server exposes authenticated `GET /health`, `GET /v1/abilities`, `POST /v1/approvals`, and `POST /v1/invocations`. A manifest supplies static fixture outputs; it cannot execute shell commands, load provider credentials, publish packages, or become a production gateway. Non-read fixtures require a request-bound, short-lived, one-time simulated approval. Keyed fixtures reserve the key before running the handler. A concurrent equivalent request returns HTTP 409 with `ability_invocation_in_progress`. Once the handler finishes, equivalent requests replay its outcome, including handler failures. Reused keys with different input or principal claims return a conflict. Request and output schemas fail closed and bodies are bounded to 1 MiB.
 
 Programmatic adapters can import `createAbilityDevServer`, pass validated definitions, and provide a `Map` of bounded handler functions. Use the canonical Kujo runtime—not this fixture harness—for production policy, approval, audit, timeout, cancellation, and receipt enforcement.
 

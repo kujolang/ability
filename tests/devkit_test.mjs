@@ -20,11 +20,16 @@ let now = 1_000;
 const started = Promise.withResolvers();
 const release = Promise.withResolvers();
 let slowRuns = 0;
+let failedRuns = 0;
 const handlers = new Map([[readDefinition.id, async () => ({ count: 1 })], [writeDefinition.id, async (input) => {
   if (input.query === "slow") {
     slowRuns += 1;
     started.resolve();
     await release.promise;
+  }
+  if (input.query === "fail") {
+    failedRuns += 1;
+    throw new Error("synthetic fixture failure");
   }
   return { count: 1 };
 }]]);
@@ -85,11 +90,22 @@ try {
     release.resolve();
   }
   const firstReceipt = (await firstResponse).body.receipt;
-  assert.equal(overlapping.code, "ability_idempotency_in_progress");
+  assert.equal(overlapping.code, "ability_invocation_in_progress");
   const replayedSlow = await request("/v1/invocations", retryBody);
   assert.equal(replayedSlow.body.receipt.receipt_id, firstReceipt.receipt_id);
   assert.equal(replayedSlow.body.replayed, true);
   assert.equal(slowRuns, 1);
+
+  const failing = { ...write, invocation_id: "fail-1", input: { query: "fail" }, idempotency_key: "fail-key" };
+  const failedApproval = await request("/v1/approvals", failing);
+  const failed = await request("/v1/invocations", { ...failing, approval_id: failedApproval.body.approval.approval_id });
+  assert.equal(failed.status, 500);
+  const failedRetry = { ...failing, invocation_id: "fail-2" };
+  const failedRetryApproval = await request("/v1/approvals", failedRetry);
+  const replayedFailure = await request("/v1/invocations", { ...failedRetry, approval_id: failedRetryApproval.body.approval.approval_id });
+  assert.equal(replayedFailure.status, 500);
+  assert.deepEqual(replayedFailure.body, { ...failed.body, replayed: true });
+  assert.equal(failedRuns, 1);
 } finally {
   release.resolve();
   server.close();
