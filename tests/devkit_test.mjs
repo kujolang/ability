@@ -17,7 +17,17 @@ assert.match(renderAbilityMarkdown(readDefinition), /Definition digest v2/);
 assert.equal(validateDevDefinition({ ...readDefinition, input_schema: { ...readDefinition.input_schema, properties: { score: { type: "number", minimum: 0.5 } } } }).code, "unsupported_canonical_json_number");
 
 let now = 1_000;
-const handlers = new Map([[readDefinition.id, async () => ({ count: 1 })], [writeDefinition.id, async () => ({ count: 1 })]]);
+const started = Promise.withResolvers();
+const release = Promise.withResolvers();
+let slowRuns = 0;
+const handlers = new Map([[readDefinition.id, async () => ({ count: 1 })], [writeDefinition.id, async (input) => {
+  if (input.query === "slow") {
+    slowRuns += 1;
+    started.resolve();
+    await release.promise;
+  }
+  return { count: 1 };
+}]]);
 const server = createAbilityDevServer({ definitions: [readDefinition, writeDefinition], handlers, token: "fixture-token-123456789", clock: () => now });
 server.listen(0, "127.0.0.1");
 await once(server, "listening");
@@ -59,7 +69,29 @@ try {
   const expiredApproval = await request("/v1/approvals", expiredRequest);
   now += 61_000;
   assert.equal((await request("/v1/invocations", { ...expiredRequest, approval_id: expiredApproval.body.approval.approval_id })).body.code, "ability_approval_expired");
+  const slow = { ...write, invocation_id: "slow-1", input: { query: "slow" }, idempotency_key: "slow-key" };
+  const retry = { ...slow, invocation_id: "slow-2" };
+  const firstApproval = await request("/v1/approvals", slow);
+  const retryApproval = await request("/v1/approvals", retry);
+  const retryBody = { ...retry, approval_id: retryApproval.body.approval.approval_id };
+  const firstResponse = request("/v1/invocations", { ...slow, approval_id: firstApproval.body.approval.approval_id });
+  await started.promise;
+  let overlapping;
+  try {
+    const controller = AbortSignal.timeout(2_000);
+    const response = await fetch(`${base}/v1/invocations`, { method: "POST", headers, body: JSON.stringify(retryBody), signal: controller });
+    overlapping = await response.json();
+  } finally {
+    release.resolve();
+  }
+  const firstReceipt = (await firstResponse).body.receipt;
+  assert.equal(overlapping.code, "ability_idempotency_in_progress");
+  const replayedSlow = await request("/v1/invocations", retryBody);
+  assert.equal(replayedSlow.body.receipt.receipt_id, firstReceipt.receipt_id);
+  assert.equal(replayedSlow.body.replayed, true);
+  assert.equal(slowRuns, 1);
 } finally {
+  release.resolve();
   server.close();
   await once(server, "close");
 }
