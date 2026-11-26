@@ -110,6 +110,20 @@ assert(successful["receipt"]["status"] == "succeeded", "successful invocation mu
 assert(successful["receipt"]["result"]["count"] == 7, "receipt must contain validated handler output")
 assert(successful["receipt"]["definition_digest"] == digest_one["digest"], "receipt must preserve the resolved definition digest")
 
+func increasing_receipt_id(kind, invocation) {
+    sleep(2)
+    return kind + "-" + to_string(current_timestamp())
+}
+func receipt_audit(phase, invocation, payload) {
+    if phase == "completed" { return {"ok": true, "receipt_id": payload["receipt_id"]} }
+    return {"ok": true}
+}
+correlation_services := services(allow_policy)
+correlation_services["id_factory"] := increasing_receipt_id
+correlation_services["audit"] := receipt_audit
+correlated := execute_ability(registry, invocation_for(read, {"query": "audit"}, ""), correlation_services)
+assert(correlated["receipt"]["receipt_id"] == correlated["receipt"]["audit"]["receipt_id"], "completion audit and caller must receive the same receipt identity")
+
 denied := execute_ability(registry, invocation_for(read, {"query": "ability"}, ""), services(deny_policy))
 assert(denied["receipt"]["status"] == "rejected" && denied["code"] == "ability_forbidden", "policy denial must return a rejected receipt")
 

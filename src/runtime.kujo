@@ -41,11 +41,13 @@ func normalized_invocation(invocation, definition_digest) {
     return result
 }
 
-func make_receipt(services, invocation, resolved, decision, status, result, error_value, started_at_ms, completed_at_ms, idempotency, audit, approval_id) {
+func make_receipt(receipt_id, invocation, resolved, decision, status, result, error_value, started_at_ms, completed_at_ms, idempotency, audit, approval_id) {
     binding := resolved["binding"]
+    completed_at := completed_at_ms
+    if completed_at < started_at_ms { completed_at = started_at_ms }
     receipt := {
         "schema": ABILITY_RECEIPT_SCHEMA_ID,
-        "receipt_id": next_id(services, "receipt", invocation),
+        "receipt_id": receipt_id,
         "invocation_id": invocation["invocation_id"],
         "ability_id": invocation["ability_id"],
         "ability_version": invocation["ability_version"],
@@ -63,8 +65,8 @@ func make_receipt(services, invocation, resolved, decision, status, result, erro
         "surface": invocation["surface"],
         "principal": invocation["principal"],
         "started_at_ms": started_at_ms,
-        "completed_at_ms": completed_at_ms,
-        "duration_ms": completed_at_ms - started_at_ms,
+        "completed_at_ms": completed_at,
+        "duration_ms": completed_at - started_at_ms,
         "audit": audit,
         "metadata": {}
     }
@@ -89,7 +91,8 @@ func audit_event(services, phase, invocation, payload) {
 }
 
 func terminal_receipt(services, invocation, resolved, decision, status_input, result_value, error_input, started_at_ms, completed_at_ms, idempotency, preflight_audit, approval_id) {
-    provisional := make_receipt(services, invocation, resolved, decision, status_input, result_value, error_input, started_at_ms, completed_at_ms, idempotency, preflight_audit, approval_id)
+    receipt_id := next_id(services, "receipt", invocation)
+    provisional := make_receipt(receipt_id, invocation, resolved, decision, status_input, result_value, error_input, started_at_ms, completed_at_ms, idempotency, preflight_audit, approval_id)
     if has_key(provisional, "receipt") == 0 { return provisional }
     final_audit := audit_event(services, "completed", invocation, provisional["receipt"])
     status := status_input
@@ -98,7 +101,7 @@ func terminal_receipt(services, invocation, resolved, decision, status_input, re
         status = "failed"
         error_value = {"code": "ability_audit_failed_after_execution", "message": "Ability outcome completed but required audit persistence failed", "details": {"execution_status": provisional["receipt"]["status"]}}
     }
-    return make_receipt(services, invocation, resolved, decision, status, result_value, error_value, started_at_ms, completed_at_ms, idempotency, final_audit, approval_id)
+    return make_receipt(receipt_id, invocation, resolved, decision, status, result_value, error_value, started_at_ms, completed_at_ms, idempotency, final_audit, approval_id)
 }
 
 func early_failure_receipt(services, invocation, resolved, decision, status, code, message, details, started_at_ms, idempotency, audit) {
@@ -135,7 +138,7 @@ func finalize_execution(services, invocation, resolved, decision, status_input, 
         if type(completion_error) != "null" || type(completion) != "dict" || dict_get_or(completion, "ok", false) != true {
             commit_idempotency := {"mode": "keyed", "state": "commit_failed", "key_digest": idempotency["key_digest"], "request_digest": idempotency["request_digest"]}
             commit_error := {"code": "ability_idempotency_commit_failed", "message": "Ability receipt could not be committed to the idempotency store", "details": {"execution_status": receipt_result["receipt"]["status"], "attempted_receipt_id": receipt_result["receipt"]["receipt_id"]}}
-            return make_receipt(services, invocation, resolved, decision, "failed", receipt_result["receipt"]["result"], commit_error, started_at_ms, completed_at_ms, commit_idempotency, receipt_result["receipt"]["audit"], approval_id)
+            return make_receipt(receipt_result["receipt"]["receipt_id"], invocation, resolved, decision, "failed", receipt_result["receipt"]["result"], commit_error, started_at_ms, completed_at_ms, commit_idempotency, receipt_result["receipt"]["audit"], approval_id)
         }
     }
     return receipt_result
